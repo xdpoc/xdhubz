@@ -1,14 +1,3 @@
---[=[
-    Unnamed XD Hub
-    Owner: @mqp6 / Poc
-    Version: 4.0.0
-    Games: Rivals, Da Hood, Phantom Forces, Arsenal, Universal
-    Executors: Delta (Primary), Hydrogen, CodeX, Arceus X
-]=]
-
---//////////////////////////////////////////////////////////////////
---//                          SERVICES                             //
---//////////////////////////////////////////////////////////////////
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -18,49 +7,32 @@ local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local Stats = game:GetService("Stats")
-local Network = game:GetService("NetworkClient")
 local VirtualUser = game:GetService("VirtualUser")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
---//////////////////////////////////////////////////////////////////
---//                        VARIABLES                              //
---//////////////////////////////////////////////////////////////////
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
+
 local PlaceId = game.PlaceId
 local JobId = game.JobId
-
 local StartTime = tick()
 local SessionId = HttpService:GenerateGUID(false)
-
-local UserData = nil
 local Authed = false
 local SelectedUI = "Rayfield"
+local UserData = nil
 
---//////////////////////////////////////////////////////////////////
---//                    DISCORD WEBHOOKS                           //
---//////////////////////////////////////////////////////////////////
 local Webhooks = {
     Logs = "https://discord.com/api/webhooks/1355834963881885806/9aXZV1Mp3QFlQ38FBC4Fon4oVfcO-3cOJV4AdN1wZfWhTRaZhlZzPZ4j0WZzPZ4j0W",
     Alerts = "https://discord.com/api/webhooks/1355834963881885806/9aXZV1Mp3QFlQ38FBC4Fon4oVfcO-3cOJV4AdN1wZfWhTRaZhlZzPZ4j0WZzPZ4j0W"
 }
 
---//////////////////////////////////////////////////////////////////
---//                      KEYAUTH CONFIG                          //
---//////////////////////////////////////////////////////////////////
-local KeyAuth = {
-    Name = "XD HUB",
-    OwnerId = "eDjLQhPvrs",
-    Version = "4.0",
-    SessionId = "",
-    Endpoint = "https://keyauth.win/api/1.1/"
+local Polsec = {
+    ApiId = "663c8b17a5da0", -- YOUR GETPOLSEC API ID
+    ApiHash = "bafb8b3edfe55e35d383130d74f3a32d", -- YOUR GETPOLSEC API HASH
+    ApiUrl = "https://getpolsec.com/api/v1/",
+    SessionToken = "",
+    UserData = nil
 }
 
---//////////////////////////////////////////////////////////////////
---//                        GAME DETECTION                        //
---//////////////////////////////////////////////////////////////////
 local GameData = {
     Current = "Universal",
     PlaceIds = {
@@ -77,8 +49,7 @@ local GameData = {
             FireRate = "FireRate",
             Recoil = "Recoil",
             Spread = "Spread",
-            Reload = "ReloadTime",
-            Gravity = "Gravity"
+            Reload = "ReloadTime"
         },
         Rivals = {
             SilentAimHook = "FindPartOnRayWithIgnoreList",
@@ -87,8 +58,7 @@ local GameData = {
             FireRate = "FireRate",
             Recoil = "Recoil",
             Spread = "Spread",
-            Reload = "ReloadTime",
-            Gravity = "Gravity"
+            Reload = "ReloadTime"
         },
         DaHood = {
             SilentAimHook = "FindPartOnRayWithIgnoreList",
@@ -97,8 +67,7 @@ local GameData = {
             FireRate = "Firerate",
             Recoil = "Recoil",
             Spread = "Spread",
-            Reload = "ReloadTime",
-            Gravity = "Gravity"
+            Reload = "ReloadTime"
         },
         PhantomForces = {
             SilentAimHook = "FindPartOnRayWithIgnoreList",
@@ -107,8 +76,7 @@ local GameData = {
             FireRate = "FireRate",
             Recoil = "Recoil",
             Spread = "Spread",
-            Reload = "ReloadTime",
-            Gravity = "Gravity"
+            Reload = "ReloadTime"
         },
         Arsenal = {
             SilentAimHook = "FindPartOnRayWithIgnoreList",
@@ -117,8 +85,7 @@ local GameData = {
             FireRate = "FireRate",
             Recoil = "Recoil",
             Spread = "Spread",
-            Reload = "ReloadTime",
-            Gravity = "Gravity"
+            Reload = "ReloadTime"
         }
     }
 }
@@ -136,12 +103,8 @@ local function DetectGame()
     return "Universal"
 end
 DetectGame()
-
 local Offsets = GameData.Offsets[GameData.Current]
 
---//////////////////////////////////////////////////////////////////
---//                    HELPER FUNCTIONS                          //
---//////////////////////////////////////////////////////////////////
 local function EncodeURL(str)
     str = tostring(str)
     str = str:gsub(" ", "%%20")
@@ -154,14 +117,8 @@ local function EncodeURL(str)
 end
 
 local function GetHWID()
-    local success, result = pcall(function()
-        return game:GetService("RbxAnalyticsService"):GetClientId()
-    end)
-    if success then
-        return result
-    else
-        return "HWID_ERROR_" .. HttpService:GenerateGUID(false)
-    end
+    local s, r = pcall(function() return game:GetService("RbxAnalyticsService"):GetClientId() end)
+    return s and r or "HWID_ERROR_" .. HttpService:GenerateGUID(false)
 end
 local HWID = GetHWID()
 
@@ -173,138 +130,148 @@ local function GetProfileLink(userId)
     return "https://www.roblox.com/users/" .. tostring(userId) .. "/profile"
 end
 
---//////////////////////////////////////////////////////////////////
---//                    DISCORD LOGGER                             //
---//////////////////////////////////////////////////////////////////
 local function SendWebhook(webhookType, data)
     task.spawn(function()
         pcall(function()
-            local webhookUrl = Webhooks[webhookType] or Webhooks.Logs
-            if webhookUrl == "" or not webhookUrl then return end
-            
-            local userId = LocalPlayer.UserId
-            local displayName = LocalPlayer.DisplayName
-            local username = LocalPlayer.Name
-            local profileLink = GetProfileLink(userId)
-            local joinLink = GetJoinLink()
-            local gameInfo = MarketplaceService:GetProductInfo(PlaceId, Enum.InfoType.Asset)
-            local gameName = gameInfo and gameInfo.Name or "Unknown"
-            
+            local url = Webhooks[webhookType] or Webhooks.Logs
+            if url == "" or not url then return end
+            local uid = LocalPlayer.UserId
+            local dn = LocalPlayer.DisplayName
+            local un = LocalPlayer.Name
+            local pl = GetProfileLink(uid)
+            local jl = GetJoinLink()
+            local gi = MarketplaceService:GetProductInfo(PlaceId, Enum.InfoType.Asset)
+            local gn = gi and gi.Name or "Unknown"
             local embed = {
-                title = "🛡️ Unnamed XD Hub | " .. tostring(webhookType),
+                title = webhookType == "Logs" and "✅ Execution Success" or "⚠️ Alert",
                 color = webhookType == "Logs" and 5763719 or 16711680,
                 fields = {
-                    {name = "User", value = string.format("[%s (@%s)](%s)", displayName, username, profileLink), inline = true},
-                    {name = "User ID", value = tostring(userId), inline = true},
+                    {name = "User", value = string.format("[%s (@%s)](%s)", dn, un, pl), inline = true},
+                    {name = "User ID", value = tostring(uid), inline = true},
                     {name = "HWID", value = HWID, inline = false},
-                    {name = "Game", value = string.format("%s (%d)", gameName, PlaceId), inline = true},
-                    {name = "Server", value = string.format("[Join](%s)", joinLink), inline = true},
+                    {name = "Game", value = string.format("%s (%d)", gn, PlaceId), inline = true},
+                    {name = "Server", value = string.format("[Join](%s)", jl), inline = true},
                     {name = "Key", value = data.key or "N/A", inline = false},
-                    {name = "Session", value = SessionId, inline = false}
+                    {name = "Session", value = SessionId, inline = false},
+                    {name = "Load Time", value = string.format("%.2fs", tick() - StartTime), inline = true}
                 },
                 footer = {text = os.date("!%Y-%m-%d %H:%M:%S UTC")},
                 timestamp = DateTime.now():ToIsoDate()
             }
-            
-            if data.type == "execute" then
-                embed.title = "✅ Execution Success"
-                embed.fields[#embed.fields+1] = {name = "Script Version", value = KeyAuth.Version, inline = true}
-                embed.fields[#embed.fields+1] = {name = "Load Time", value = string.format("%.2fs", tick() - StartTime), inline = true}
-            elseif data.type == "auth" then
-                embed.title = "🔑 Authentication"
-                embed.color = 15844367
-                embed.fields[#embed.fields+1] = {name = "Status", value = data.success and "Success" or "Failed", inline = true}
-                if data.username then
-                    embed.fields[#embed.fields+1] = {name = "KeyAuth User", value = data.username, inline = true}
-                end
-            elseif data.type == "error" then
-                embed.title = "⚠️ Script Error"
-                embed.color = 15548997
-                embed.fields[#embed.fields+1] = {name = "Error", value = data.message or "Unknown", inline = false}
+            if data.username then
+                embed.fields[#embed.fields+1] = {name = "Polsec User", value = data.username, inline = true}
             end
-            
+            if data.expiry then
+                embed.fields[#embed.fields+1] = {name = "Expiry", value = data.expiry, inline = true}
+            end
             local payload = {
                 username = "XD Hub Logger",
                 avatar_url = "https://cdn.discordapp.com/embed/avatars/0.png",
                 embeds = {embed}
             }
-            
-            HttpService:PostAsync(webhookUrl, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
+            HttpService:PostAsync(url, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
         end)
     end)
 end
 
---//////////////////////////////////////////////////////////////////
---//                    KEYAUTH FUNCTIONS                         //
---//////////////////////////////////////////////////////////////////
-local function KeyAuthInit()
-    local url = KeyAuth.Endpoint .. "?name=" .. EncodeURL(KeyAuth.Name) .. "&ownerid=" .. EncodeURL(KeyAuth.OwnerId) .. "&type=init&ver=" .. EncodeURL(KeyAuth.Version)
-    local success, response = pcall(function() return game:HttpGet(url) end)
-    if not success then return false, "Connection failed" end
-    local success2, data = pcall(function() return HttpService:JSONDecode(response) end)
-    if not success2 or not data then return false, "Invalid response" end
-    if data.success then
-        KeyAuth.SessionId = data.sessionid
-        return true, data.sessionid
+local function PolsecRequest(endpoint, data)
+    local url = Polsec.ApiUrl .. endpoint
+    data = data or {}
+    data.api_id = Polsec.ApiId
+    data.api_hash = Polsec.ApiHash
+    if Polsec.SessionToken ~= "" then
+        data.session_token = Polsec.SessionToken
     end
-    return false, data.message or "Init failed"
+    local encoded = HttpService:JSONEncode(data)
+    local s, r = pcall(function()
+        return game:HttpPost(url, encoded, Enum.HttpContentType.ApplicationJson)
+    end)
+    if not s then
+        return false, "Connection failed"
+    end
+    local s2, d = pcall(function()
+        return HttpService:JSONDecode(r)
+    end)
+    if not s2 or not d then
+        return false, "Invalid response"
+    end
+    if d.success then
+        return true, d
+    else
+        return false, d.message or "Request failed"
+    end
 end
 
-local function KeyAuthLicense(key)
-    if not key or key:gsub("%s", "") == "" then return false, "No key entered" end
-    local url = KeyAuth.Endpoint .. "?name=" .. EncodeURL(KeyAuth.Name) .. "&ownerid=" .. EncodeURL(KeyAuth.OwnerId) .. "&type=license&key=" .. EncodeURL(key) .. "&ver=" .. EncodeURL(KeyAuth.Version) .. "&sessionid=" .. EncodeURL(KeyAuth.SessionId)
-    local success, response = pcall(function() return game:HttpGet(url) end)
-    if not success then return false, "Connection failed" end
-    local success2, data = pcall(function() return HttpService:JSONDecode(response) end)
-    if not success2 or not data then return false, "Invalid response" end
-    if data.success then
-        UserData = data
+local function PolsecInit()
+    local s, d = PolsecRequest("init", {
+        hwid = HWID,
+        place_id = PlaceId,
+        job_id = JobId
+    })
+    if s then
+        Polsec.SessionToken = d.session_token
+        return true, d
+    else
+        return false, d
+    end
+end
+
+local function PolsecLicense(key)
+    local s, d = PolsecRequest("license", {
+        key = key,
+        hwid = HWID
+    })
+    if s then
+        Polsec.UserData = d
         Authed = true
-        SendWebhook("Logs", {type = "auth", success = true, key = key, username = data.info and data.info.username})
-        return true, data
+        UserData = {
+            info = {
+                username = d.username or LocalPlayer.Name,
+                expiry = d.expiry or "Lifetime",
+                subscription = d.plan or "Premium"
+            }
+        }
+        SendWebhook("Logs", {
+            key = key,
+            username = d.username,
+            expiry = d.expiry
+        })
+        return true, d
+    else
+        SendWebhook("Logs", {
+            key = key,
+            username = "Failed"
+        })
+        return false, d
     end
-    SendWebhook("Logs", {type = "auth", success = false, key = key, message = data.message})
-    return false, data.message or "Invalid key"
 end
 
---//////////////////////////////////////////////////////////////////
---//                      UI SELECTION                            //
---//////////////////////////////////////////////////////////////////
-local UI = {
-    Selected = "Rayfield",
-    Custom = {
-        ScreenGui = nil,
-        MainFrame = nil,
-        Dragging = {false, nil, nil, nil},
-        Open = true,
-        ToggleKey = Enum.KeyCode.RightShift
-    }
-}
+local initSuccess, initData = PolsecInit()
+if not initSuccess then
+    LocalPlayer:Kick("Polsec Error: " .. tostring(initData))
+    return
+end
 
-local function CreateCustomUI()
-    if UI.Custom.ScreenGui then pcall(function() UI.Custom.ScreenGui:Destroy() end) end
-    
+local function CreateUI_Selector()
     local sg = Instance.new("ScreenGui")
-    sg.Name = "UnnamedXDHub_UI"
+    sg.Name = "XDHub_Selector"
     sg.Parent = CoreGui
     sg.ResetOnSpawn = false
-    sg.DisplayOrder = 9999
+    sg.DisplayOrder = 10000
     sg.IgnoreGuiInset = true
-    UI.Custom.ScreenGui = sg
+    sg.Enabled = true
     
     local main = Instance.new("Frame")
-    main.Name = "MainFrame"
-    main.Size = UDim2.new(0, 450, 0, 550)
-    main.Position = UDim2.new(0.5, -225, 0.5, -275)
+    main.Size = UDim2.new(0, 450, 0, 300)
+    main.Position = UDim2.new(0.5, -225, 0.5, -150)
     main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     main.BorderSizePixel = 0
     main.Active = true
     main.Draggable = true
     main.Parent = sg
-    UI.Custom.MainFrame = main
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
+    corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = main
     
     local stroke = Instance.new("UIStroke")
@@ -312,155 +279,273 @@ local function CreateCustomUI()
     stroke.Color = Color3.fromRGB(45, 45, 55)
     stroke.Parent = main
     
-    local titlebar = Instance.new("Frame")
-    titlebar.Size = UDim2.new(1, 0, 0, 45)
-    titlebar.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-    titlebar.BorderSizePixel = 0
-    titlebar.Parent = main
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 60)
+    title.Position = UDim2.new(0, 0, 0, 20)
+    title.BackgroundTransparency = 1
+    title.Text = "Unnamed XD Hub"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 28
+    title.Font = Enum.Font.GothamBold
+    title.Parent = main
     
-    local titlecorner = Instance.new("UICorner")
-    titlecorner.CornerRadius = UDim.new(0, 10)
-    titlecorner.Parent = titlebar
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(1, 0, 0, 30)
+    subtitle.Position = UDim2.new(0, 0, 0, 80)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "🔐 Powered by GetPolsec"
+    subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+    subtitle.TextSize = 18
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.Parent = main
     
-    local titletext = Instance.new("TextLabel")
-    titletext.Size = UDim2.new(1, -50, 1, 0)
-    titletext.Position = UDim2.new(0, 15, 0, 0)
-    titletext.BackgroundTransparency = 1
-    titletext.Text = "Unnamed XD Hub | " .. GameData.Current
-    titletext.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titletext.TextSize = 18
-    titletext.TextXAlignment = Enum.TextXAlignment.Left
-    titletext.Font = Enum.Font.GothamBold
-    titletext.Parent = titlebar
+    local gameText = Instance.new("TextLabel")
+    gameText.Size = UDim2.new(1, 0, 0, 30)
+    gameText.Position = UDim2.new(0, 0, 0, 120)
+    gameText.BackgroundTransparency = 1
+    gameText.Text = "Detected: " .. GameData.Current
+    gameText.TextColor3 = Color3.fromRGB(100, 200, 255)
+    gameText.TextSize = 16
+    gameText.Font = Enum.Font.GothamBold
+    gameText.Parent = main
     
-    local closebtn = Instance.new("TextButton")
-    closebtn.Size = UDim2.new(0, 30, 0, 30)
-    closebtn.Position = UDim2.new(1, -40, 0, 7.5)
-    closebtn.BackgroundColor3 = Color3.fromRGB(220, 70, 70)
-    closebtn.BorderSizePixel = 0
-    closebtn.Text = "X"
-    closebtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closebtn.TextSize = 18
-    closebtn.Font = Enum.Font.GothamBold
-    closebtn.Parent = titlebar
-    closebtn.MouseButton1Click:Connect(function() sg.Enabled = not sg.Enabled end)
+    local rayfieldBtn = Instance.new("TextButton")
+    rayfieldBtn.Size = UDim2.new(0.4, 0, 0, 50)
+    rayfieldBtn.Position = UDim2.new(0.1, 0, 0, 180)
+    rayfieldBtn.BackgroundColor3 = Color3.fromRGB(65, 105, 225)
+    rayfieldBtn.BorderSizePixel = 0
+    rayfieldBtn.Text = "Rayfield UI"
+    rayfieldBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rayfieldBtn.TextSize = 18
+    rayfieldBtn.Font = Enum.Font.GothamBold
+    rayfieldBtn.Parent = main
     
-    local closecorner = Instance.new("UICorner")
-    closecorner.CornerRadius = UDim.new(0, 6)
-    closecorner.Parent = closebtn
+    local rCorner = Instance.new("UICorner")
+    rCorner.CornerRadius = UDim.new(0, 8)
+    rCorner.Parent = rayfieldBtn
     
-    local tabholder = Instance.new("Frame")
-    tabholder.Size = UDim2.new(1, 0, 0, 45)
-    tabholder.Position = UDim2.new(0, 0, 0, 45)
-    tabholder.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-    tabholder.BorderSizePixel = 0
-    tabholder.Parent = main
+    local customBtn = Instance.new("TextButton")
+    customBtn.Size = UDim2.new(0.4, 0, 0, 50)
+    customBtn.Position = UDim2.new(0.5, 20, 0, 180)
+    customBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    customBtn.BorderSizePixel = 0
+    customBtn.Text = "Custom UI"
+    customBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    customBtn.TextSize = 18
+    customBtn.Font = Enum.Font.GothamBold
+    customBtn.Parent = main
     
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -20, 1, -110)
-    container.Position = UDim2.new(0, 10, 0, 100)
-    container.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-    container.BorderSizePixel = 0
-    container.Parent = main
+    local cCorner = Instance.new("UICorner")
+    cCorner.CornerRadius = UDim.new(0, 8)
+    cCorner.Parent = customBtn
     
-    local containercorner = Instance.new("UICorner")
-    containercorner.CornerRadius = UDim.new(0, 8)
-    containercorner.Parent = container
+    local status = Instance.new("TextLabel")
+    status.Size = UDim2.new(1, 0, 0, 30)
+    status.Position = UDim2.new(0, 0, 0, 250)
+    status.BackgroundTransparency = 1
+    status.Text = "Polsec Ready - Select UI"
+    status.TextColor3 = Color3.fromRGB(100, 255, 100)
+    status.TextSize = 14
+    status.Font = Enum.Font.Gotham
+    status.Parent = main
     
-    local tabs = {
-        {Name = "Combat", Color = Color3.fromRGB(65, 105, 225)},
-        {Name = "Movement", Color = Color3.fromRGB(80, 200, 120)},
-        {Name = "Visuals", Color = Color3.fromRGB(255, 170, 70)},
-        {Name = "World", Color = Color3.fromRGB(170, 120, 255)},
-        {Name = "Misc", Color = Color3.fromRGB(255, 100, 100)}
-    }
+    rayfieldBtn.MouseButton1Click:Connect(function()
+        SelectedUI = "Rayfield"
+        sg:Destroy()
+        CreateUI_KeyAuth()
+    end)
     
-    for i, tab in ipairs(tabs) do
-        local btn = Instance.new("TextButton")
-        btn.Name = tab.Name .. "Tab"
-        btn.Size = UDim2.new(0, 85, 0, 35)
-        btn.Position = UDim2.new(0, 5 + ((i-1) * 90), 0, 5)
-        btn.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-        btn.BorderSizePixel = 0
-        btn.Text = tab.Name
-        btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        btn.TextSize = 15
-        btn.Font = Enum.Font.Gotham
-        btn.Parent = tabholder
-        
-        local btncorner = Instance.new("UICorner")
-        btncorner.CornerRadius = UDim.new(0, 6)
-        btncorner.Parent = btn
-        
-        local content = Instance.new("ScrollingFrame")
-        content.Name = tab.Name .. "Content"
-        content.Size = UDim2.new(1, -20, 1, -20)
-        content.Position = UDim2.new(0, 10, 0, 10)
-        content.BackgroundTransparency = 1
-        content.BorderSizePixel = 0
-        content.ScrollBarThickness = 4
-        content.ScrollBarImageColor3 = Color3.fromRGB(65, 105, 225)
-        content.CanvasSize = UDim2.new(0, 0, 0, 0)
-        content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        content.Visible = i == 1
-        content.Parent = container
-        
-        btn.MouseButton1Click:Connect(function()
-            for _, c in pairs(container:GetChildren()) do
-                if c:IsA("ScrollingFrame") then c.Visible = false end
-            end
-            content.Visible = true
-            for _, b in pairs(tabholder:GetChildren()) do
-                if b:IsA("TextButton") then
-                    b.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-                    b.TextColor3 = Color3.fromRGB(200, 200, 200)
-                end
-            end
-            btn.BackgroundColor3 = tab.Color
-            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        end)
-    end
-    
-    UI.Custom.ToggleKey = Enum.KeyCode.RightShift
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        if input.KeyCode == UI.Custom.ToggleKey then
-            sg.Enabled = not sg.Enabled
-        end
+    customBtn.MouseButton1Click:Connect(function()
+        SelectedUI = "Custom"
+        sg:Destroy()
+        CreateUI_KeyAuth()
     end)
     
     return sg
 end
 
---//////////////////////////////////////////////////////////////////
---//                    SETTINGS TABLE                            //
---//////////////////////////////////////////////////////////////////
+local function CreateUI_KeyAuth()
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "XDHub_KeyAuth"
+    sg.Parent = CoreGui
+    sg.ResetOnSpawn = false
+    sg.DisplayOrder = 9999
+    sg.IgnoreGuiInset = true
+    sg.Enabled = true
+    
+    local main = Instance.new("Frame")
+    main.Size = UDim2.new(0, 450, 0, 420)
+    main.Position = UDim2.new(0.5, -225, 0.5, -210)
+    main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+    main.BorderSizePixel = 0
+    main.Active = true
+    main.Draggable = true
+    main.Parent = sg
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = main
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(45, 45, 55)
+    stroke.Parent = main
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 70)
+    title.Position = UDim2.new(0, 0, 0, 20)
+    title.BackgroundTransparency = 1
+    title.Text = "Unnamed XD Hub"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 30
+    title.Font = Enum.Font.GothamBold
+    title.Parent = main
+    
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(1, 0, 0, 30)
+    subtitle.Position = UDim2.new(0, 0, 0, 90)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "🔐 License Verification | GetPolsec"
+    subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+    subtitle.TextSize = 16
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.Parent = main
+    
+    local gameText = Instance.new("TextLabel")
+    gameText.Size = UDim2.new(1, 0, 0, 30)
+    gameText.Position = UDim2.new(0, 0, 0, 130)
+    gameText.BackgroundTransparency = 1
+    gameText.Text = "Game: " .. GameData.Current
+    gameText.TextColor3 = Color3.fromRGB(100, 200, 255)
+    gameText.TextSize = 16
+    gameText.Font = Enum.Font.GothamBold
+    gameText.Parent = main
+    
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(0.85, 0, 0, 55)
+    input.Position = UDim2.new(0.5, -190, 0, 190)
+    input.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+    input.BorderSizePixel = 0
+    input.PlaceholderText = "Enter License Key"
+    input.PlaceholderColor3 = Color3.fromRGB(140, 140, 150)
+    input.Text = ""
+    input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    input.TextSize = 18
+    input.Font = Enum.Font.Gotham
+    input.ClearTextOnFocus = false
+    input.Parent = main
+    
+    local icorner = Instance.new("UICorner")
+    icorner.CornerRadius = UDim.new(0, 8)
+    icorner.Parent = input
+    
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.85, 0, 0, 55)
+    button.Position = UDim2.new(0.5, -190, 0, 260)
+    button.BackgroundColor3 = Color3.fromRGB(65, 105, 225)
+    button.BorderSizePixel = 0
+    button.Text = "LOGIN"
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 20
+    button.Font = Enum.Font.GothamBold
+    button.Parent = main
+    
+    local bcorner = Instance.new("UICorner")
+    bcorner.CornerRadius = UDim.new(0, 8)
+    bcorner.Parent = button
+    
+    local status = Instance.new("TextLabel")
+    status.Size = UDim2.new(1, 0, 0, 30)
+    status.Position = UDim2.new(0, 0, 0, 330)
+    status.BackgroundTransparency = 1
+    status.Text = "Connected - Enter your key"
+    status.TextColor3 = Color3.fromRGB(100, 255, 100)
+    status.TextSize = 14
+    status.Font = Enum.Font.Gotham
+    status.Parent = main
+    
+    local hwid = Instance.new("TextLabel")
+    hwid.Size = UDim2.new(0.85, 0, 0, 35)
+    hwid.Position = UDim2.new(0.5, -190, 0, 370)
+    hwid.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+    hwid.BorderSizePixel = 0
+    hwid.Text = "HWID: " .. HWID
+    hwid.TextColor3 = Color3.fromRGB(140, 140, 150)
+    hwid.TextSize = 12
+    hwid.Font = Enum.Font.Gotham
+    hwid.Parent = main
+    
+    local hcorner = Instance.new("UICorner")
+    hcorner.CornerRadius = UDim.new(0, 6)
+    hcorner.Parent = hwid
+    
+    local function SetStatus(t, e)
+        status.Text = t
+        if e == true then
+            status.TextColor3 = Color3.fromRGB(255, 80, 80)
+        elseif e == false then
+            status.TextColor3 = Color3.fromRGB(80, 255, 80)
+        else
+            status.TextColor3 = Color3.fromRGB(255, 200, 0)
+        end
+    end
+    
+    button.MouseButton1Click:Connect(function()
+        local key = input.Text:gsub("%s", "")
+        if key == "" then
+            SetStatus("Please enter a key", true)
+            return
+        end
+        SetStatus("Verifying with GetPolsec...", nil)
+        button.Text = "..."
+        button.Active = false
+        task.spawn(function()
+            local s, r = PolsecLicense(key)
+            if s then
+                SetStatus("✅ Verified! Loading hub...", false)
+                button.Text = "✓"
+                task.wait(1)
+                sg:Destroy()
+                Authed = true
+            else
+                SetStatus("❌ " .. tostring(r), true)
+                button.Text = "LOGIN"
+                button.Active = true
+            end
+        end)
+    end)
+    
+    input.FocusLost:Connect(function(enter)
+        if enter then button.MouseButton1Click:Fire() end
+    end)
+    
+    return sg
+end
+
+CreateUI_Selector()
+
+while not Authed do task.wait() end
+task.wait(0.5)
+
 local Settings = {
     Combat = {
         SilentAim = {Enabled = false, HitPart = "Head", FOV = 90, Prediction = 0.165, TeamCheck = true, WallCheck = true, ShowFOV = false},
         Aimlock = {Enabled = false, Smoothness = 5, TargetPart = "Head", Key = Enum.UserInputType.MouseButton2, Holding = false},
-        Triggerbot = {Enabled = false, Delay = 0.05, IgnoreFriends = true},
+        Triggerbot = {Enabled = false, Delay = 0.05},
         Hitbox = {Enabled = false, Size = 2.5, Transparency = 0.7, TeamCheck = true, Color = Color3.fromRGB(255, 0, 0)},
         InfiniteAmmo = {Enabled = false},
         NoRecoil = {Enabled = false},
         NoSpread = {Enabled = false},
         RapidFire = {Enabled = false},
         InstantReload = {Enabled = false},
-        DamageMultiplier = {Enabled = false, Value = 1},
-        AutoShoot = {Enabled = false},
-        Wallbang = {Enabled = false}
+        DamageMultiplier = {Enabled = false, Value = 1}
     },
     Movement = {
         Fly = {Enabled = false, Speed = 50, MobileJoystick = false},
         Noclip = {Enabled = false},
         Speed = {Enabled = false, Amount = 32},
         Jump = {Enabled = false, Amount = 75},
-        InfiniteJump = {Enabled = false},
-        AirJump = {Enabled = false},
-        Float = {Enabled = false},
-        AntiFall = {Enabled = false},
-        Spinbot = {Enabled = false, Speed = 10},
-        BHop = {Enabled = false}
+        InfiniteJump = {Enabled = false}
     },
     Visuals = {
         ESP = {
@@ -471,41 +556,20 @@ local Settings = {
             Tracer = false, TracerColor = Color3.fromRGB(255, 255, 255),
             HeadDot = false, HeadDotColor = Color3.fromRGB(255, 0, 0),
             Weapon = true, WeaponColor = Color3.fromRGB(255, 255, 0),
-            Skeleton = false, SkeletonColor = Color3.fromRGB(255, 255, 255),
-            Chams = false, ChamsColor = Color3.fromRGB(0, 255, 255),
-            Glow = false, GlowColor = Color3.fromRGB(0, 255, 255)
-        },
-        HitboxVisual = {Enabled = false, Color = Color3.fromRGB(255, 0, 0), Transparency = 0.5},
-        BulletTracers = {Enabled = false, Color = Color3.fromRGB(255, 255, 0)},
-        Crosshair = {Enabled = false, Color = Color3.fromRGB(255, 255, 255), Size = 10, Gap = 5}
+            Skeleton = false, SkeletonColor = Color3.fromRGB(255, 255, 255)
+        }
     },
     World = {
         FullBright = {Enabled = false},
         NoFog = {Enabled = false},
-        NoShadows = {Enabled = false},
-        Ambient = {Enabled = false, Color = Color3.fromRGB(127, 127, 127)},
-        Sky = {Enabled = false, ID = 0},
-        Time = {Enabled = false, Hour = 12},
-        Water = {Enabled = false, Transparency = 0.5},
-        AntiLag = {Enabled = false}
+        NoShadows = {Enabled = false}
     },
     Misc = {
         GodMode = {Enabled = false},
-        AntiAfk = {Enabled = false},
-        AutoFarm = {Enabled = false},
-        AutoCollect = {Enabled = false},
-        NoFallDamage = {Enabled = false},
-        NoClipThroughWalls = {Enabled = false},
-        AlwaysDay = {Enabled = false},
-        AlwaysClear = {Enabled = false},
-        ForceField = {Enabled = false},
-        AntiVoid = {Enabled = false}
+        AntiAfk = {Enabled = false}
     }
 }
 
---//////////////////////////////////////////////////////////////////
---//                      SILENT AIM HOOK                         //
---//////////////////////////////////////////////////////////////////
 local SilentAimHook
 SilentAimHook = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
@@ -513,14 +577,14 @@ SilentAimHook = hookmetamethod(game, "__namecall", function(self, ...)
         local target = nil
         local closest = Settings.Combat.SilentAim.FOV
         local mousePos = UserInputService:GetMouseLocation()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Settings.Combat.SilentAim.HitPart) then
-                if not Settings.Combat.SilentAim.TeamCheck or player.Team ~= LocalPlayer.Team then
-                    local part = player.Character[Settings.Combat.SilentAim.HitPart]
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.Combat.SilentAim.HitPart) then
+                if not Settings.Combat.SilentAim.TeamCheck or p.Team ~= LocalPlayer.Team then
+                    local part = p.Character[Settings.Combat.SilentAim.HitPart]
                     if Settings.Combat.SilentAim.WallCheck then
                         local ray = Ray.new(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 500)
                         local hit, pos = Workspace:FindPartOnRay(ray, LocalPlayer.Character)
-                        if hit and not hit:IsDescendantOf(player.Character) then goto continue end
+                        if hit and not hit:IsDescendantOf(p.Character) then goto continue end
                     end
                     local screen, onScreen = Camera:WorldToViewportPoint(part.Position + (part.Velocity * Settings.Combat.SilentAim.Prediction))
                     if onScreen then
@@ -542,9 +606,6 @@ SilentAimHook = hookmetamethod(game, "__namecall", function(self, ...)
     return SilentAimHook(self, ...)
 end)
 
---//////////////////////////////////////////////////////////////////
---//                    INDEX HOOK (GUN MODS)                     //
---//////////////////////////////////////////////////////////////////
 local IndexHook
 IndexHook = hookmetamethod(game, "__index", function(self, key)
     if Settings.Combat.NoRecoil.Enabled then
@@ -574,9 +635,6 @@ IndexHook = hookmetamethod(game, "__index", function(self, key)
     return IndexHook(self, key)
 end)
 
---//////////////////////////////////////////////////////////////////
---//                      FOV CIRCLE                              //
---//////////////////////////////////////////////////////////////////
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Radius = Settings.Combat.SilentAim.FOV
@@ -586,9 +644,6 @@ FOVCircle.Filled = false
 FOVCircle.NumSides = 64
 FOVCircle.Transparency = 0.7
 
---//////////////////////////////////////////////////////////////////
---//                      FLY SYSTEM                              //
---//////////////////////////////////////////////////////////////////
 local FlyBodyGyro, FlyBodyVelocity, FlyConnection
 
 local function StartFly()
@@ -620,9 +675,9 @@ local function StartFly()
         if UserInputService.TouchEnabled and Settings.Movement.Fly.MobileJoystick then
             local touches = UserInputService:GetTouchInputs()
             if #touches > 0 then
-                local touch = touches[#touches]
+                local t = touches[#touches]
                 local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                local diff = touch.Position - center
+                local diff = t.Position - center
                 if diff.X > 50 then move = move + cf.RightVector end
                 if diff.X < -50 then move = move - cf.RightVector end
                 if diff.Y > 50 then move = move - cf.LookVector end
@@ -648,9 +703,6 @@ local function StopFly()
     end
 end
 
---//////////////////////////////////////////////////////////////////
---//                      NOCLIP / SPEED / JUMP                   //
---//////////////////////////////////////////////////////////////////
 RunService.Stepped:Connect(function()
     if Settings.Movement.Noclip.Enabled and LocalPlayer.Character then
         for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
@@ -665,37 +717,31 @@ RunService.Stepped:Connect(function()
     end
 end)
 
---//////////////////////////////////////////////////////////////////
---//                      INFINITE JUMP                           //
---//////////////////////////////////////////////////////////////////
 UserInputService.JumpRequest:Connect(function()
     if Settings.Movement.InfiniteJump.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
---//////////////////////////////////////////////////////////////////
---//                      HITBOX EXPANDER                         //
---//////////////////////////////////////////////////////////////////
 local HitboxHighlights = {}
 
-local function CreateHitbox(player)
-    if player == LocalPlayer then return end
-    if HitboxHighlights[player] then pcall(function() HitboxHighlights[player]:Destroy() end) end
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "XDHub_Hitbox"
-    highlight.Adornee = player.Character
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.FillColor = Settings.Combat.Hitbox.Color
-    highlight.FillTransparency = Settings.Combat.Hitbox.Transparency
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.OutlineTransparency = 0.5
-    highlight.Parent = CoreGui
-    HitboxHighlights[player] = highlight
+local function CreateHitbox(p)
+    if p == LocalPlayer then return end
+    if HitboxHighlights[p] then pcall(function() HitboxHighlights[p]:Destroy() end) end
+    local h = Instance.new("Highlight")
+    h.Name = "XDHub_Hitbox"
+    h.Adornee = p.Character
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.FillColor = Settings.Combat.Hitbox.Color
+    h.FillTransparency = Settings.Combat.Hitbox.Transparency
+    h.OutlineColor = Color3.fromRGB(255, 255, 255)
+    h.OutlineTransparency = 0.5
+    h.Parent = CoreGui
+    HitboxHighlights[p] = h
 end
 
-local function RemoveHitbox(player)
-    if HitboxHighlights[player] then pcall(function() HitboxHighlights[player]:Destroy() end) HitboxHighlights[player] = nil end
+local function RemoveHitbox(p)
+    if HitboxHighlights[p] then pcall(function() HitboxHighlights[p]:Destroy() end) HitboxHighlights[p] = nil end
 end
 
 local function UpdateHitboxes()
@@ -706,17 +752,14 @@ local function UpdateHitboxes()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
             if not Settings.Combat.Hitbox.TeamCheck or p.Team ~= LocalPlayer.Team then
-                if not HitboxHighlights[p] then
-                    CreateHitbox(p)
+                if not HitboxHighlights[p] then CreateHitbox(p)
                 else
                     local h = HitboxHighlights[p]
                     h.FillColor = Settings.Combat.Hitbox.Color
                     h.FillTransparency = Settings.Combat.Hitbox.Transparency
                     h.Adornee = p.Character
                 end
-            else
-                RemoveHitbox(p)
-            end
+            else RemoveHitbox(p) end
         end
     end
 end
@@ -731,9 +774,6 @@ Players.PlayerAdded:Connect(function(p)
 end)
 Players.PlayerRemoving:Connect(RemoveHitbox)
 
---//////////////////////////////////////////////////////////////////
---//                      ESP SYSTEM                              //
---//////////////////////////////////////////////////////////////////
 local ESPObjects = {}
 local SkeletonJoints = {
     {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"}, {"UpperTorso", "LeftUpperArm"},
@@ -755,7 +795,7 @@ local function CreateESP(p)
     o.HeadDot = Drawing.new("Circle"); o.HeadDot.Visible = false; o.HeadDot.Color = Settings.Visuals.ESP.HeadDotColor; o.HeadDot.Radius = 4; o.HeadDot.Filled = true; o.HeadDot.NumSides = 16
     o.Weapon = Drawing.new("Text"); o.Weapon.Visible = false; o.Weapon.Color = Settings.Visuals.ESP.WeaponColor; o.Weapon.Size = 12; o.Weapon.Center = true; o.Weapon.Outline = true
     o.Skeleton = {}
-    for i = 1, 15 do local line = Drawing.new("Line"); line.Visible = false; line.Color = Settings.Visuals.ESP.SkeletonColor; line.Thickness = 1.5; table.insert(o.Skeleton, line) end
+    for i = 1, 15 do local l = Drawing.new("Line"); l.Visible = false; l.Color = Settings.Visuals.ESP.SkeletonColor; l.Thickness = 1.5; table.insert(o.Skeleton, l) end
     ESPObjects[p] = o
 end
 
@@ -872,57 +912,26 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 RunService.RenderStepped:Connect(UpdateESP)
 
---//////////////////////////////////////////////////////////////////
---//                      WORLD VISUALS                           //
---//////////////////////////////////////////////////////////////////
 local OriginalBrightness = Lighting.Brightness
 local OriginalFogEnd = Lighting.FogEnd
 local OriginalGlobalShadows = Lighting.GlobalShadows
 local OriginalAmbient = Lighting.Ambient
-local OriginalColorShiftBottom = Lighting.ColorShift_Bottom
-local OriginalColorShiftTop = Lighting.ColorShift_Top
 
 local function UpdateWorld()
     if Settings.World.FullBright.Enabled then
-        Lighting.Brightness = 2
-        Lighting.GlobalShadows = false
-        Lighting.Ambient = Color3.fromRGB(255,255,255)
-        Lighting.ColorShift_Bottom = Color3.fromRGB(255,255,255)
-        Lighting.ColorShift_Top = Color3.fromRGB(255,255,255)
+        Lighting.Brightness = 2; Lighting.GlobalShadows = false; Lighting.Ambient = Color3.fromRGB(255,255,255)
     else
-        Lighting.Brightness = OriginalBrightness
-        Lighting.GlobalShadows = OriginalGlobalShadows
-        Lighting.Ambient = OriginalAmbient
-        Lighting.ColorShift_Bottom = OriginalColorShiftBottom
-        Lighting.ColorShift_Top = OriginalColorShiftTop
+        Lighting.Brightness = OriginalBrightness; Lighting.GlobalShadows = OriginalGlobalShadows; Lighting.Ambient = OriginalAmbient
     end
-    if Settings.World.NoFog.Enabled then
-        Lighting.FogEnd = 100000
-    else
-        Lighting.FogEnd = OriginalFogEnd
-    end
-    if Settings.World.NoShadows.Enabled then
-        Lighting.GlobalShadows = false
-    elseif not Settings.World.FullBright.Enabled then
-        Lighting.GlobalShadows = OriginalGlobalShadows
-    end
-    if Settings.World.Ambient.Enabled then
-        Lighting.Ambient = Settings.World.Ambient.Color
-    end
-    if Settings.World.Time.Enabled then
-        Lighting.ClockTime = Settings.World.Time.Hour
-    end
+    if Settings.World.NoFog.Enabled then Lighting.FogEnd = 100000 else Lighting.FogEnd = OriginalFogEnd end
+    if Settings.World.NoShadows.Enabled then Lighting.GlobalShadows = false elseif not Settings.World.FullBright.Enabled then Lighting.GlobalShadows = OriginalGlobalShadows end
 end
 
---//////////////////////////////////////////////////////////////////
---//                      AIMLOCK / INPUT                         //
---//////////////////////////////////////////////////////////////////
 UserInputService.InputBegan:Connect(function(i)
     if Settings.Combat.Aimlock.Enabled and (i.UserInputType == Settings.Combat.Aimlock.Key or i.KeyCode == Enum.KeyCode[tostring(Settings.Combat.Aimlock.Key)]) then
         Settings.Combat.Aimlock.Holding = true
     end
 end)
-
 UserInputService.InputEnded:Connect(function(i)
     if i.UserInputType == Settings.Combat.Aimlock.Key or i.KeyCode == Enum.KeyCode[tostring(Settings.Combat.Aimlock.Key)] then
         Settings.Combat.Aimlock.Holding = false
@@ -936,8 +945,7 @@ RunService.RenderStepped:Connect(function()
         FOVCircle.Radius = Settings.Combat.SilentAim.FOV
     else FOVCircle.Visible = false end
     if Settings.Combat.Aimlock.Enabled and Settings.Combat.Aimlock.Holding then
-        local target = nil
-        local closest = math.huge
+        local target = nil; local closest = math.huge
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.Combat.Aimlock.TargetPart) then
                 if not Settings.Combat.SilentAim.TeamCheck or p.Team ~= LocalPlayer.Team then
@@ -959,9 +967,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
---//////////////////////////////////////////////////////////////////
---//                      TRIGGERBOT                              //
---//////////////////////////////////////////////////////////////////
 task.spawn(function()
     while task.wait() do
         if Settings.Combat.Triggerbot.Enabled then
@@ -982,9 +987,6 @@ task.spawn(function()
     end
 end)
 
---//////////////////////////////////////////////////////////////////
---//                      ANTI AFK                                //
---//////////////////////////////////////////////////////////////////
 if Settings.Misc.AntiAfk.Enabled then
     LocalPlayer.Idled:Connect(function()
         VirtualUser:CaptureController()
@@ -992,270 +994,13 @@ if Settings.Misc.AntiAfk.Enabled then
     end)
 end
 
---//////////////////////////////////////////////////////////////////
---//                      RESPAWN HANDLER                         //
---//////////////////////////////////////////////////////////////////
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(1)
     if Settings.Movement.Fly.Enabled then StopFly(); task.wait(0.1); StartFly() end
     if Settings.Combat.Hitbox.Enabled then UpdateHitboxes() end
 end)
 
---//////////////////////////////////////////////////////////////////
---//                      KEYAUTH INIT                            //
---//////////////////////////////////////////////////////////////////
-local initSuccess, initMsg = KeyAuthInit()
-if not initSuccess then
-    LocalPlayer:Kick("KeyAuth Error: " .. tostring(initMsg))
-    return
-end
-
---//////////////////////////////////////////////////////////////////
---//                      UI SELECTION DIALOG                     //
---//////////////////////////////////////////////////////////////////
-local SelectionGui = Instance.new("ScreenGui")
-SelectionGui.Name = "XDHub_UI_Selector"
-SelectionGui.Parent = CoreGui
-SelectionGui.ResetOnSpawn = false
-SelectionGui.DisplayOrder = 10000
-
-local SelectionFrame = Instance.new("Frame")
-SelectionFrame.Size = UDim2.new(0, 400, 0, 250)
-SelectionFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
-SelectionFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-SelectionFrame.BorderSizePixel = 0
-SelectionFrame.Active = true
-SelectionFrame.Draggable = true
-SelectionFrame.Parent = SelectionGui
-
-local SelCorner = Instance.new("UICorner")
-SelCorner.CornerRadius = UDim.new(0, 10)
-SelCorner.Parent = SelectionFrame
-
-local SelTitle = Instance.new("TextLabel")
-SelTitle.Size = UDim2.new(1, 0, 0, 50)
-SelTitle.Position = UDim2.new(0, 0, 0, 15)
-SelTitle.BackgroundTransparency = 1
-SelTitle.Text = "Select Your UI"
-SelTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-SelTitle.TextSize = 24
-SelTitle.Font = Enum.Font.GothamBold
-SelTitle.Parent = SelectionFrame
-
-local SelSub = Instance.new("TextLabel")
-SelSub.Size = UDim2.new(1, 0, 0, 30)
-SelSub.Position = UDim2.new(0, 0, 0, 65)
-SelSub.BackgroundTransparency = 1
-SelSub.Text = "Choose your preferred interface"
-SelSub.TextColor3 = Color3.fromRGB(180, 180, 180)
-SelSub.TextSize = 16
-SelSub.Font = Enum.Font.Gotham
-SelSub.Parent = SelectionFrame
-
-local RayfieldBtn = Instance.new("TextButton")
-RayfieldBtn.Size = UDim2.new(0.4, 0, 0, 45)
-RayfieldBtn.Position = UDim2.new(0.1, 0, 0, 120)
-RayfieldBtn.BackgroundColor3 = Color3.fromRGB(65, 105, 225)
-RayfieldBtn.BorderSizePixel = 0
-RayfieldBtn.Text = "Rayfield UI"
-RayfieldBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-RayfieldBtn.TextSize = 18
-RayfieldBtn.Font = Enum.Font.GothamBold
-RayfieldBtn.Parent = SelectionFrame
-
-local RayfieldCorner = Instance.new("UICorner")
-RayfieldCorner.CornerRadius = UDim.new(0, 8)
-RayfieldCorner.Parent = RayfieldBtn
-
-local CustomBtn = Instance.new("TextButton")
-CustomBtn.Size = UDim2.new(0.4, 0, 0, 45)
-CustomBtn.Position = UDim2.new(0.5, 20, 0, 120)
-CustomBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-CustomBtn.BorderSizePixel = 0
-CustomBtn.Text = "Custom UI"
-CustomBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CustomBtn.TextSize = 18
-CustomBtn.Font = Enum.Font.GothamBold
-CustomBtn.Parent = SelectionFrame
-
-local CustomCorner = Instance.new("UICorner")
-CustomCorner.CornerRadius = UDim.new(0, 8)
-CustomCorner.Parent = CustomBtn
-
-local StatusSel = Instance.new("TextLabel")
-StatusSel.Size = UDim2.new(1, 0, 0, 30)
-StatusSel.Position = UDim2.new(0, 0, 0, 190)
-StatusSel.BackgroundTransparency = 1
-StatusSel.Text = "Loading KeyAuth..."
-StatusSel.TextColor3 = Color3.fromRGB(255, 255, 0)
-StatusSel.TextSize = 14
-StatusSel.Font = Enum.Font.Gotham
-StatusSel.Parent = SelectionFrame
-
---//////////////////////////////////////////////////////////////////
---//                      KEYAUTH UI                              //
---//////////////////////////////////////////////////////////////////
-local AuthGui = Instance.new("ScreenGui")
-AuthGui.Name = "XDHub_KeyAuth"
-AuthGui.Parent = CoreGui
-AuthGui.ResetOnSpawn = false
-AuthGui.DisplayOrder = 9999
-AuthGui.Enabled = false
-
-local AuthFrame = Instance.new("Frame")
-AuthFrame.Size = UDim2.new(0, 420, 0, 380)
-AuthFrame.Position = UDim2.new(0.5, -210, 0.5, -190)
-AuthFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-AuthFrame.BorderSizePixel = 0
-AuthFrame.Active = true
-AuthFrame.Draggable = true
-AuthFrame.Parent = AuthGui
-
-local AuthCorner = Instance.new("UICorner")
-AuthCorner.CornerRadius = UDim.new(0, 10)
-AuthCorner.Parent = AuthFrame
-
-local AuthTitle = Instance.new("TextLabel")
-AuthTitle.Size = UDim2.new(1, 0, 0, 60)
-AuthTitle.Position = UDim2.new(0, 0, 0, 20)
-AuthTitle.BackgroundTransparency = 1
-AuthTitle.Text = "Unnamed XD Hub"
-AuthTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-AuthTitle.TextSize = 28
-AuthTitle.Font = Enum.Font.GothamBold
-AuthTitle.Parent = AuthFrame
-
-local AuthSub = Instance.new("TextLabel")
-AuthSub.Size = UDim2.new(1, 0, 0, 30)
-AuthSub.Position = UDim2.new(0, 0, 0, 80)
-AuthSub.BackgroundTransparency = 1
-AuthSub.Text = "🔐 Verified Services & Keyauth.cc"
-AuthSub.TextColor3 = Color3.fromRGB(180, 180, 180)
-AuthSub.TextSize = 15
-AuthSub.Font = Enum.Font.Gotham
-AuthSub.Parent = AuthFrame
-
-local AuthInput = Instance.new("TextBox")
-AuthInput.Size = UDim2.new(0.85, 0, 0, 55)
-AuthInput.Position = UDim2.new(0.5, -175, 0, 140)
-AuthInput.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-AuthInput.BorderSizePixel = 0
-AuthInput.PlaceholderText = "Enter License Key"
-AuthInput.PlaceholderColor3 = Color3.fromRGB(140, 140, 150)
-AuthInput.Text = ""
-AuthInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-AuthInput.TextSize = 18
-AuthInput.Font = Enum.Font.Gotham
-AuthInput.ClearTextOnFocus = false
-AuthInput.Parent = AuthFrame
-
-local AuthInputCorner = Instance.new("UICorner")
-AuthInputCorner.CornerRadius = UDim.new(0, 8)
-AuthInputCorner.Parent = AuthInput
-
-local AuthButton = Instance.new("TextButton")
-AuthButton.Size = UDim2.new(0.85, 0, 0, 55)
-AuthButton.Position = UDim2.new(0.5, -175, 0, 210)
-AuthButton.BackgroundColor3 = Color3.fromRGB(65, 105, 225)
-AuthButton.BorderSizePixel = 0
-AuthButton.Text = "LOGIN"
-AuthButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-AuthButton.TextSize = 20
-AuthButton.Font = Enum.Font.GothamBold
-AuthButton.Parent = AuthFrame
-
-local AuthBtnCorner = Instance.new("UICorner")
-AuthBtnCorner.CornerRadius = UDim.new(0, 8)
-AuthBtnCorner.Parent = AuthButton
-
-local AuthStatus = Instance.new("TextLabel")
-AuthStatus.Size = UDim2.new(1, 0, 0, 30)
-AuthStatus.Position = UDim2.new(0, 0, 0, 280)
-AuthStatus.BackgroundTransparency = 1
-AuthStatus.Text = "Initializing..."
-AuthStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-AuthStatus.TextSize = 14
-AuthStatus.Font = Enum.Font.Gotham
-AuthStatus.Parent = AuthFrame
-
-local AuthHwid = Instance.new("TextLabel")
-AuthHwid.Size = UDim2.new(0.85, 0, 0, 30)
-AuthHwid.Position = UDim2.new(0.5, -175, 0, 330)
-AuthHwid.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-AuthHwid.BorderSizePixel = 0
-AuthHwid.Text = "HWID: " .. HWID
-AuthHwid.TextColor3 = Color3.fromRGB(140, 140, 150)
-AuthHwid.TextSize = 12
-AuthHwid.Font = Enum.Font.Gotham
-AuthHwid.Parent = AuthFrame
-
-local AuthHwidCorner = Instance.new("UICorner")
-AuthHwidCorner.CornerRadius = UDim.new(0, 6)
-AuthHwidCorner.Parent = AuthHwid
-
-local function UpdateAuthStatus(text, isError)
-    AuthStatus.Text = text
-    if isError == true then AuthStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
-    elseif isError == false then AuthStatus.TextColor3 = Color3.fromRGB(80, 255, 80)
-    else AuthStatus.TextColor3 = Color3.fromRGB(255, 200, 0) end
-end
-
---//////////////////////////////////////////////////////////////////
---//                      UI SELECTION LOGIC                      //
---//////////////////////////////////////////////////////////////////
-RayfieldBtn.MouseButton1Click:Connect(function()
-    SelectedUI = "Rayfield"
-    SelectionGui:Destroy()
-    AuthGui.Enabled = true
-    UpdateAuthStatus("Connected - Enter your key", nil)
-end)
-
-CustomBtn.MouseButton1Click:Connect(function()
-    SelectedUI = "Custom"
-    SelectionGui:Destroy()
-    AuthGui.Enabled = true
-    UpdateAuthStatus("Connected - Enter your key", nil)
-end)
-
---//////////////////////////////////////////////////////////////////
---//                      KEYAUTH LOGIC                           //
---//////////////////////////////////////////////////////////////////
-AuthButton.MouseButton1Click:Connect(function()
-    local key = AuthInput.Text:gsub("%s", "")
-    if key == "" then
-        UpdateAuthStatus("Please enter a key", true)
-        return
-    end
-    UpdateAuthStatus("Verifying...", nil)
-    AuthButton.Text = "..."
-    AuthButton.Active = false
-    task.spawn(function()
-        local success, result = KeyAuthLicense(key)
-        if success then
-            UpdateAuthStatus("Verified! Loading...", false)
-            AuthButton.Text = "✓"
-            task.wait(0.8)
-            AuthGui:Destroy()
-            Authed = true
-        else
-            UpdateAuthStatus(tostring(result), true)
-            AuthButton.Text = "LOGIN"
-            AuthButton.Active = true
-        end
-    end)
-end)
-
-AuthInput.FocusLost:Connect(function(enter)
-    if enter then AuthButton.MouseButton1Click:Fire() end
-end)
-
-while not Authed do task.wait() end
-task.wait(0.5)
-
---//////////////////////////////////////////////////////////////////
---//                      LOAD SELECTED UI                        //
---//////////////////////////////////////////////////////////////////
-SendWebhook("Logs", {type = "execute", key = "Authenticated"})
+SendWebhook("Logs", {key = "Authenticated", username = Polsec.UserData and Polsec.UserData.username or LocalPlayer.Name})
 
 if SelectedUI == "Rayfield" then
     local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -1349,23 +1094,148 @@ if SelectedUI == "Rayfield" then
     
     TabMisc:CreateSection("Player")
     TabMisc:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) Settings.Misc.GodMode.Enabled = v end})
-    TabMisc:CreateToggle({Name = "Anti AFK", CurrentValue = false, Callback = function(v) Settings.Misc.AntiAfk.Enabled = v end})
+    TabMisc:CreateToggle({Name = "Anti AFK", CurrentValue = false, Callback = function(v) Settings.Misc.AntiAfk.Enabled = v; if v then LocalPlayer.Idled:Connect(function() VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new()) end) end end})
     
     TabInfo:CreateSection("Account")
     TabInfo:CreateParagraph({
         Title = "Your Information",
-        Content = string.format("User: %s\nGame: %s\nHWID: %s\nMobile: %s", LocalPlayer.Name, GameData.Current, HWID:sub(1,8).."...", UserInputService.TouchEnabled and "Yes" or "No")
+        Content = string.format("User: %s\nGame: %s\nHWID: %s\nMobile: %s\nPolsec: %s\nExpiry: %s", 
+            LocalPlayer.Name, 
+            GameData.Current, 
+            HWID:sub(1,8).."...", 
+            UserInputService.TouchEnabled and "Yes" or "No",
+            Polsec.UserData and Polsec.UserData.username or "N/A",
+            Polsec.UserData and Polsec.UserData.expiry or "Lifetime")
     })
     TabInfo:CreateSection("Unnamed XD Hub")
     TabInfo:CreateParagraph({
         Title = "About",
-        Content = "Owner: @mqp6 / Poc\nVersion: 4.0.0\nDiscord: discord.gg/rmpQfYtnWd"
+        Content = "Owner: @mqp6 / Poc\nVersion: 4.0.0\nDiscord: discord.gg/rmpQfYtnWd\nAuth: GetPolsec"
     })
     TabInfo:CreateButton({Name = "Copy Discord", Callback = function() if setclipboard then setclipboard("https://discord.gg/rmpQfYtnWd"); Rayfield:Notify({Title = "Copied", Content = "Discord link copied", Duration = 2}) end end})
     
     Rayfield:Notify({Title = "Unnamed XD Hub", Content = "Loaded | " .. GameData.Current, Duration = 5})
 else
+    local function CreateCustomUI()
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "UnnamedXDHub_Custom"
+        sg.Parent = CoreGui
+        sg.ResetOnSpawn = false
+        sg.DisplayOrder = 9999
+        sg.IgnoreGuiInset = true
+        sg.Enabled = true
+        
+        local main = Instance.new("Frame")
+        main.Size = UDim2.new(0, 500, 0, 350)
+        main.Position = UDim2.new(0.5, -250, 0.5, -175)
+        main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+        main.BorderSizePixel = 0
+        main.Active = true
+        main.Draggable = true
+        main.Parent = sg
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = main
+        
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 50)
+        title.Position = UDim2.new(0, 0, 0, 15)
+        title.BackgroundTransparency = 1
+        title.Text = "Unnamed XD Hub | " .. GameData.Current
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextSize = 24
+        title.Font = Enum.Font.GothamBold
+        title.Parent = main
+        
+        local close = Instance.new("TextButton")
+        close.Size = UDim2.new(0, 35, 0, 35)
+        close.Position = UDim2.new(1, -45, 0, 10)
+        close.BackgroundColor3 = Color3.fromRGB(220, 70, 70)
+        close.BorderSizePixel = 0
+        close.Text = "X"
+        close.TextColor3 = Color3.fromRGB(255, 255, 255)
+        close.TextSize = 20
+        close.Font = Enum.Font.GothamBold
+        close.Parent = main
+        close.MouseButton1Click:Connect(function() sg.Enabled = not sg.Enabled end)
+        
+        local ccorner = Instance.new("UICorner")
+        ccorner.CornerRadius = UDim.new(0, 8)
+        ccorner.Parent = close
+        
+        local minimize = Instance.new("TextButton")
+        minimize.Size = UDim2.new(0, 35, 0, 35)
+        minimize.Position = UDim2.new(1, -90, 0, 10)
+        minimize.BackgroundColor3 = Color3.fromRGB(65, 65, 75)
+        minimize.BorderSizePixel = 0
+        minimize.Text = "—"
+        minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+        minimize.TextSize = 20
+        minimize.Font = Enum.Font.GothamBold
+        minimize.Parent = main
+        minimize.MouseButton1Click:Connect(function() main.Visible = false; task.wait(0.1); main.Visible = true end)
+        
+        local mcorner = Instance.new("UICorner")
+        mcorner.CornerRadius = UDim.new(0, 8)
+        mcorner.Parent = minimize
+        
+        local status = Instance.new("TextLabel")
+        status.Size = UDim2.new(1, -20, 0, 40)
+        status.Position = UDim2.new(0, 10, 0, 70)
+        status.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+        status.BorderSizePixel = 0
+        status.Text = "✅ Loaded | Polsec: " .. (Polsec.UserData and Polsec.UserData.username or LocalPlayer.Name)
+        status.TextColor3 = Color3.fromRGB(100, 255, 100)
+        status.TextSize = 16
+        status.Font = Enum.Font.Gotham
+        status.Parent = main
+        
+        local sc = Instance.new("UICorner")
+        sc.CornerRadius = UDim.new(0, 8)
+        sc.Parent = status
+        
+        local expiry = Instance.new("TextLabel")
+        expiry.Size = UDim2.new(1, -20, 0, 30)
+        expiry.Position = UDim2.new(0, 10, 0, 120)
+        expiry.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+        expiry.BorderSizePixel = 0
+        expiry.Text = "Expiry: " .. (Polsec.UserData and Polsec.UserData.expiry or "Lifetime")
+        expiry.TextColor3 = Color3.fromRGB(255, 200, 100)
+        expiry.TextSize = 14
+        expiry.Font = Enum.Font.Gotham
+        expiry.Parent = main
+        
+        local ec = Instance.new("UICorner")
+        ec.CornerRadius = UDim.new(0, 8)
+        ec.Parent = expiry
+        
+        local features = Instance.new("TextLabel")
+        features.Size = UDim2.new(1, -20, 0, 120)
+        features.Position = UDim2.new(0, 10, 0, 160)
+        features.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+        features.BorderSizePixel = 0
+        features.Text = "Silent Aim: ✓\nAimlock: ✓\nTriggerbot: ✓\nHitbox: ✓\nFly: ✓\nESP: ✓\n\nFull settings in Rayfield UI"
+        features.TextColor3 = Color3.fromRGB(200, 200, 200)
+        features.TextSize = 14
+        features.TextXAlignment = Enum.TextXAlignment.Left
+        features.Font = Enum.Font.Gotham
+        features.Parent = main
+        
+        local fcorner = Instance.new("UICorner")
+        fcorner.CornerRadius = UDim.new(0, 8)
+        fcorner.Parent = features
+        
+        UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.LeftShift then
+                sg.Enabled = not sg.Enabled
+            end
+        end)
+        
+        return sg
+    end
     CreateCustomUI()
 end
 
-SendWebhook("Logs", {type = "execute", key = "Authenticated", username = UserData and UserData.info and UserData.info.username})
+SendWebhook("Logs", {key = "Loaded", username = Polsec.UserData and Polsec.UserData.username or LocalPlayer.Name})
