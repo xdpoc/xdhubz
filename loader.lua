@@ -1,67 +1,111 @@
+-- xdhubz - Universal Script
+-- Version: 2.1
+-- Games: Arsenal, Rivals, Da Hood
+
+-- Try multiple UI library sources
+local UI = nil
+local UI_SOURCES = {
+    "https://raw.githubusercontent.com/linemaster2/Rayfield/main/source", -- Backup mirror
+    "https://raw.githubusercontent.com/Mstudio45/Rayfield/main/source", -- Another mirror
+    "https://raw.githubusercontent.com/7rebex/Rayfield/main/source" -- Another mirror
+}
+
+local success = false
+for _, url in ipairs(UI_SOURCES) do
+    pcall(function()
+        UI = loadstring(game:HttpGet(url))()
+        if UI then success = true end
+    end)
+    if success then break end
+end
+
+-- If all Rayfield mirrors fail, use OwlHub as fallback
+if not success then
+    UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/CriShoux/OwlHub/master/OwlHub.txt"))()
+end
+
+-- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
-local TeleportService = game:GetService("TeleportService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local VirtualUser = game:GetService("VirtualUser")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
+-- Game Detection
 local PlaceId = game.PlaceId
-local JobId = game.JobId
+local Game = "Universal"
 
-local GameData = {
-    Current = "Universal",
+local GameDetection = {
     Arsenal = {286090429, 142823239, 4123456789, 1304584327, 5602055394},
-    DaHood = {7213776334, 2788229376, 12132143254, 5421072413, 4483381587},
-    PhantomForces = {292439477, 13212453678, 9827675351, 6111083092},
     Rivals = {4483381587, 2713886045, 606849621, 9192908196, 1537690962},
-    WildWest = {2116556182, 4819812387, 9014234901, 3358904356},
-    BreakIn = {1322096432, 8849316423, 2134789654, 5734111098},
-    BedWars = {6872265039, 8562821213, 11021538791, 9012348765},
-    MM2 = {142823239, 3144011132, 4895768901, 2345678901},
-    Jailbreak = {606849621, 4567891230, 7891234560, 3456789012}
+    DaHood = {7213776334, 2788229376, 12132143254, 5421072413}
 }
 
-for name, ids in pairs(GameData) do
-    if name ~= "Current" then
-        for _, id in ipairs(ids) do
-            if PlaceId == id then
-                GameData.Current = name
-                break
-            end
+for name, ids in pairs(GameDetection) do
+    for _, id in ipairs(ids) do
+        if PlaceId == id then 
+            Game = name 
+            break
         end
     end
 end
 
-local Offsets = {
-    Universal = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "CurrentAmmo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    Arsenal = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "CurrentAmmo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    DaHood = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "Ammo", FireRate = "Firerate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    PhantomForces = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "AmmoCount", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    Rivals = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "CurrentAmmo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    WildWest = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "Ammo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    BreakIn = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "CurrentAmmo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    BedWars = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "Ammo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    MM2 = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "CurrentAmmo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"},
-    Jailbreak = {SilentAimHook = "FindPartOnRayWithIgnoreList", Damage = "Damage", Ammo = "Ammo", FireRate = "FireRate", Recoil = "Recoil", Spread = "Spread", Reload = "ReloadTime"}
-}
+-- Create Window based on which UI loaded
+local Window
+if UI.CreateWindow then -- OwlHub
+    Window = UI:CreateWindow({
+        Name = "xdhubz | " .. Game,
+        Description = "Arsenal • Rivals • Da Hood",
+        Theme = "Default",
+        Folder = "xdhubz"
+    })
+else -- Rayfield
+    Window = UI:CreateWindow({
+        Name = "xdhubz | " .. Game,
+        LoadingTitle = "xdhubz",
+        LoadingSubtitle = "Arsenal • Rivals • Da Hood",
+        ConfigurationSaving = {
+            Enabled = true,
+            FolderName = "xdhubz",
+            FileName = "config"
+        },
+        Discord = {
+            Enabled = true,
+            Invite = "rmpQfYtnWd",
+            RememberJoins = true
+        },
+        KeySystem = false
+    })
+end
 
-local Offset = Offsets[GameData.Current] or Offsets.Universal
+-- Create Tabs (UI agnostic)
+local Tabs = {}
 
+if UI.CreateWindow then -- OwlHub
+    Tabs.Main = Window:AddTab("Main")
+    Tabs.Combat = Window:AddTab("Combat")
+    Tabs.Player = Window:AddTab("Player")
+    Tabs.Visuals = Window:AddTab("Visuals")
+    Tabs.Misc = Window:AddTab("Misc")
+    Tabs.GameSpecific = Window:AddTab(Game)
+else -- Rayfield
+    Tabs.Main = Window:CreateTab("Main", 4483362458)
+    Tabs.Combat = Window:CreateTab("Combat", 4483362458)
+    Tabs.Player = Window:CreateTab("Player", 4483362458)
+    Tabs.Visuals = Window:CreateTab("Visuals", 4483362458)
+    Tabs.Misc = Window:CreateTab("Misc", 4483362458)
+    Tabs.GameSpecific = Window:CreateTab(Game, 4483362458)
+end
+
+-- Settings Storage
 local Settings = {
-    SilentAim = {Enabled = false, HitPart = "Head", FOV = 90, Prediction = 0.165, TeamCheck = true, WallCheck = true, ShowFOV = false, AutoPrediction = false},
-    Aimlock = {Enabled = false, Smoothness = 5, TargetPart = "Head", Key = Enum.UserInputType.MouseButton2, Holding = false, ThirdPerson = false},
-    Triggerbot = {Enabled = false, Delay = 0.05, IgnoreFriends = true, IgnoreTeam = true, WallCheck = false},
+    SilentAim = {Enabled = false, HitPart = "Head", FOV = 90, Prediction = 0.165, TeamCheck = true, WallCheck = true, ShowFOV = false},
+    Aimlock = {Enabled = false, Smoothness = 5, TargetPart = "Head", Key = Enum.UserInputType.MouseButton2, Holding = false},
+    Triggerbot = {Enabled = false, Delay = 0.05},
     Hitbox = {Enabled = false, Size = 2.5, Transparency = 0.7, TeamCheck = true, Color = Color3.fromRGB(255,0,0)},
     InfiniteAmmo = {Enabled = false},
     NoRecoil = {Enabled = false},
@@ -69,171 +113,166 @@ local Settings = {
     RapidFire = {Enabled = false},
     InstantReload = {Enabled = false},
     DamageMultiplier = {Enabled = false, Value = 1},
-    AutoShoot = {Enabled = false, Delay = 0.1},
-    Wallbang = {Enabled = false, Penetration = 100},
-    BulletTracers = {Enabled = false, Color = Color3.fromRGB(255,255,0), Thickness = 1.5},
-    AntiAim = {Enabled = false, Pitch = 0, Yaw = 0, SpinSpeed = 10, Jitter = false},
-    AirStuck = {Enabled = false, Key = Enum.KeyCode.V},
-    DoubleTap = {Enabled = false, Delay = 0.05},
-    AutoReload = {Enabled = false},
-    NoSway = {Enabled = false},
-    NoCameraRecoil = {Enabled = false},
-    AutoFire = {Enabled = false},
-    Fly = {Enabled = false, Speed = 50, MobileJoystick = false, AntiKick = false},
+    Fly = {Enabled = false, Speed = 50},
     Noclip = {Enabled = false},
     Speed = {Enabled = false, Amount = 32},
     Jump = {Enabled = false, Amount = 75},
     InfiniteJump = {Enabled = false},
-    AirJump = {Enabled = false},
-    Float = {Enabled = false, Height = 10},
-    AntiFall = {Enabled = false},
-    Spinbot = {Enabled = false, Speed = 10},
-    BHop = {Enabled = false, AutoJump = false},
-    CFrameTeleport = {Enabled = false, Speed = 50},
-    LongJump = {Enabled = false, Power = 100},
-    HighJump = {Enabled = false, Power = 100},
-    WaterWalk = {Enabled = false},
-    WallClimb = {Enabled = false, Speed = 16},
-    AirStrafing = {Enabled = false},
-    AutoSprint = {Enabled = false},
-    NoSlowdown = {Enabled = false},
-    Glide = {Enabled = false, Speed = 10},
-    Teleport = {Enabled = false, Key = Enum.KeyCode.T},
-    ESP = {
-        Enabled = false, Box = true, BoxColor = Color3.fromRGB(255,100,100), BoxOutline = true,
-        Name = true, NameColor = Color3.fromRGB(255,255,255),
-        Health = true, HealthColor = Color3.fromRGB(100,255,100),
-        Distance = true, DistanceColor = Color3.fromRGB(200,200,200),
-        Tracer = false, TracerColor = Color3.fromRGB(255,255,255), TracerStart = "Bottom",
-        HeadDot = false, HeadDotColor = Color3.fromRGB(255,0,0), HeadDotSize = 4,
-        Weapon = true, WeaponColor = Color3.fromRGB(255,255,0),
-        Skeleton = false, SkeletonColor = Color3.fromRGB(255,255,255),
-        Chams = false, ChamsColor = Color3.fromRGB(0,255,255), ChamsTransparency = 0.5,
-        Glow = false, GlowColor = Color3.fromRGB(0,255,255), GlowTransparency = 0.5,
-        Box3D = false, Box3DColor = Color3.fromRGB(255,100,100),
-        CornerBox = false, CornerBoxColor = Color3.fromRGB(255,255,255),
-        HealthBar = false, HealthBarColor = Color3.fromRGB(100,255,100),
-        ArmorBar = false, ArmorBarColor = Color3.fromRGB(0,150,255),
-        Rank = false, RankColor = Color3.fromRGB(255,255,0),
-        Platform = false, PlatformColor = Color3.fromRGB(200,200,200),
-        TeamID = false, TeamIDColor = Color3.fromRGB(255,255,255),
-        Highlight = false, HighlightColor = Color3.fromRGB(255,255,0)
-    },
-    Crosshair = {Enabled = false, Color = Color3.fromRGB(255,255,255), Size = 10, Gap = 5, Thickness = 2, Dot = false, Outline = true, Shape = "Cross"},
-    FOVChanger = {Enabled = false, Amount = 90, ThirdPerson = false, Distance = 10},
-    NoFlash = {Enabled = false},
-    NoGun = {Enabled = false},
-    NoViewmodel = {Enabled = false},
-    NightVision = {Enabled = false, Brightness = 0.5},
-    ThermalVision = {Enabled = false, Color = Color3.fromRGB(255,100,0)},
-    FullBright = {Enabled = false},
-    World = {
-        FullBright = {Enabled = false},
-        NoFog = {Enabled = false},
-        NoShadows = {Enabled = false},
-        Ambient = {Enabled = false, Color = Color3.fromRGB(127,127,127)},
-        Sky = {Enabled = false, ID = 0},
-        Time = {Enabled = false, Hour = 12},
-        Water = {Enabled = false, Transparency = 0.5, Color = Color3.fromRGB(0,150,255)},
-        AntiLag = {Enabled = false, LowGraphics = false},
-        NoTexture = {Enabled = false},
-        Wireframe = {Enabled = false},
-        XRay = {Enabled = false, Transparency = 0.5},
-        Rainbow = {Enabled = false, Speed = 1}
-    },
+    ESP = {Enabled = false, Box = true, BoxColor = Color3.fromRGB(255,100,100), Name = true, Health = true, Distance = true, Weapon = true, Tracer = false, HeadDot = false, Skeleton = false, BoxOutline = true},
+    World = {FullBright = {Enabled = false}, NoFog = {Enabled = false}, NoShadows = {Enabled = false}},
     GodMode = {Enabled = false},
     AntiAfk = {Enabled = false},
-    AutoFarm = {Enabled = false, Type = "Gun"},
-    AutoCollect = {Enabled = false, Radius = 50},
-    NoFallDamage = {Enabled = false},
-    ForceField = {Enabled = false},
-    AntiVoid = {Enabled = false},
-    AutoRespawn = {Enabled = false},
-    AutoWin = {Enabled = false},
-    AntiKick = {Enabled = false},
-    AntiBan = {Enabled = false},
-    AntiReport = {Enabled = false},
-    SpoofUsername = {Enabled = false, Name = ""},
-    SpoofDisplayName = {Enabled = false, Name = ""},
-    FriendCheck = {Enabled = false},
-    ClanSpoof = {Enabled = false, Tag = ""},
-    AutoStr = {Enabled = false, Message = ""},
-    ChatSpammer = {Enabled = false, Message = "", Delay = 1},
-    AutoBuy = {Enabled = false, Item = ""},
-    AutoEquip = {Enabled = false, Item = ""},
-    AutoSell = {Enabled = false},
-    AutoTrade = {Enabled = false},
-    Dupe = {Enabled = false},
-    Rejoin = {Enabled = false, Key = Enum.KeyCode.R},
-    ServerHop = {Enabled = false, Key = Enum.KeyCode.H},
-    Arsenal = {AutoKill = false, AutoWin = false, ForceField = false, InfiniteStamina = false, NoKnockback = false, NoSlowness = false, AutoReload = false, AutoSwap = false, AutoGun = false, NoScope = false, AutoSpin = false},
-    DaHood = {SilentAim = false, Aimlock = false, Triggerbot = false, InfiniteAmmo = false, NoRecoil = false, RapidFire = false, GodMode = false, AutoFarm = false, AutoCollect = false, AutoStr = false, AutoBuy = false, AutoEquip = false, AutoSell = false, Dupe = false},
-    PhantomForces = {SilentAim = false, Aimlock = false, Triggerbot = false, InfiniteAmmo = false, NoRecoil = false, NoSpread = false, RapidFire = false, NoSway = false, NoCameraRecoil = false},
-    Rivals = {SilentAim = false, Aimlock = false, Triggerbot = false, InfiniteAmmo = false, NoRecoil = false, NoSpread = false, RapidFire = false},
-    WildWest = {SilentAim = false, Aimlock = false, Triggerbot = false, InfiniteAmmo = false, NoRecoil = false},
-    BreakIn = {ESP = false, Hitbox = false, Fly = false, Noclip = false, Speed = false, InfiniteJump = false, NoFallDamage = false, AutoCollect = false},
-    BedWars = {SilentAim = false, Aimlock = false, Triggerbot = false, ESP = false, Hitbox = false, Fly = false, AntiVoid = false, AutoFarm = false},
-    MM2 = {ESP = false, Hitbox = false, Fly = false, Noclip = false, Speed = false, InfiniteJump = false, AutoWin = false, AutoCollect = false},
-    Jailbreak = {SilentAim = false, Aimlock = false, Triggerbot = false, ESP = false, Hitbox = false, Fly = false, Noclip = false, Speed = false, InfiniteJump = false, AutoFarm = false, AutoCollect = false}
+    NoFallDamage = {Enabled = false}
 }
 
-local SilentAimHook
-SilentAimHook = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    if Settings.SilentAim.Enabled and method == Offset.SilentAimHook and self:IsA("Camera") then
-        local target = nil
-        local closest = Settings.SilentAim.FOV
+-- Game Specific Features
+local GameFeatures = {
+    Arsenal = {
+        AutoKill = {Enabled = false, Range = 80},
+        AutoKillAll = {Enabled = false},
+        AutoFarm = {Enabled = false},
+        NoScope = {Enabled = false},
+        AutoReload = {Enabled = false},
+        InfiniteStamina = {Enabled = false},
+        NoKnockback = {Enabled = false}
+    },
+    Rivals = {
+        AutoFarm = {Enabled = false},
+        InfiniteSpin = {Enabled = false},
+        AutoGK = {Enabled = false},
+        SpeedBoost = {Enabled = false, Multiplier = 3},
+        JumpBoost = {Enabled = false, Multiplier = 3}
+    },
+    DaHood = {
+        AutoFarm = {Enabled = false},
+        AutoCollect = {Enabled = false, Radius = 50},
+        AutoStr = {Enabled = false, Message = ""},
+        AntiStomp = {Enabled = false},
+        Desync = {Enabled = false}
+    }
+}
+
+-- Game Offsets
+local Offsets = {
+    Arsenal = {
+        SilentAimHook = "FindPartOnRayWithIgnoreList",
+        Ammo = "CurrentAmmo",
+        FireRate = "FireRate",
+        Recoil = "Recoil",
+        Spread = "Spread"
+    },
+    Rivals = {
+        SilentAimHook = "FindPartOnRayWithIgnoreList",
+        Ammo = "CurrentAmmo",
+        FireRate = "FireRate",
+        Recoil = "Recoil",
+        Spread = "Spread"
+    },
+    DaHood = {
+        SilentAimHook = "FindPartOnRayWithIgnoreList",
+        Ammo = "Ammo",
+        FireRate = "Firerate",
+        Recoil = "Recoil",
+        Spread = "Spread"
+    }
+}
+
+local Offset = Offsets[Game] or Offsets.Arsenal
+local CurrentGameFeatures = GameFeatures[Game] or {}
+
+-- Utility Functions
+local Utility = {
+    IsAlive = function(character)
+        return character and character:FindFirstChild("Humanoid") and character:FindFirstChild("HumanoidRootPart") and character.Humanoid.Health > 0
+    end,
+    
+    GetClosestPlayer = function(ignoreTeam, maxDistance, targetPart)
+        local closest, closestDist = nil, maxDistance or math.huge
         local mousePos = UserInputService:GetMouseLocation()
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.SilentAim.HitPart) then
-                if not Settings.SilentAim.TeamCheck or p.Team ~= LocalPlayer.Team then
-                    local part = p.Character[Settings.SilentAim.HitPart]
-                    if Settings.SilentAim.WallCheck then
-                        local ray = Ray.new(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 500)
-                        local hit, pos = Workspace:FindPartOnRay(ray, LocalPlayer.Character)
-                        if hit and not hit:IsDescendantOf(p.Character) then goto continue end
-                    end
-                    local screen, onScreen = Camera:WorldToViewportPoint(part.Position + (part.Velocity * Settings.SilentAim.Prediction))
+        
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and Utility.IsAlive(player.Character) then
+                local part = player.Character:FindFirstChild(targetPart or "Head")
+                if part and (not ignoreTeam or player.Team ~= LocalPlayer.Team) then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                     if onScreen then
-                        local dist = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
-                        if dist < closest then
-                            closest = dist
-                            target = part
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closest = {Player = player, Part = part, Position = part.Position}
                         end
                     end
-                    ::continue::
                 end
             end
         end
-        if target then
-            local pos = target.Position + (target.Velocity * Settings.SilentAim.Prediction)
-            return {pos}, pos, Vector3.new(), Enum.Material.SmoothPlastic
+        
+        return closest, closestDist
+    end
+}
+
+-- Silent Aim Hook
+local SilentAimHook
+local hook_success, hook_error = pcall(function()
+    SilentAimHook = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        
+        if Settings.SilentAim.Enabled and method == Offset.SilentAimHook and self:IsA("Camera") then
+            local closest = Utility.GetClosestPlayer(Settings.SilentAim.TeamCheck, Settings.SilentAim.FOV, Settings.SilentAim.HitPart)
+            
+            if closest then
+                local part = closest.Part
+                local prediction = part.Velocity * Settings.SilentAim.Prediction
+                local targetPos = part.Position + prediction
+                
+                if Settings.SilentAim.WallCheck then
+                    local ray = Ray.new(Camera.CFrame.Position, (targetPos - Camera.CFrame.Position).Unit * 500)
+                    local hit = Workspace:FindPartOnRay(ray, LocalPlayer.Character)
+                    if hit and not hit:IsDescendantOf(closest.Player.Character) then
+                        return SilentAimHook(self, ...)
+                    end
+                end
+                
+                return {targetPos}, targetPos, Vector3.new(), Enum.Material.SmoothPlastic
+            end
         end
-    end
-    return SilentAimHook(self, ...)
+        
+        return SilentAimHook(self, ...)
+    end)
 end)
 
+-- Index Hook
 local IndexHook
-IndexHook = hookmetamethod(game, "__index", function(self, key)
-    if Settings.NoRecoil.Enabled then
-        if self:IsA("LocalScript") and tostring(key):match(Offset.Recoil) then return 0 end
-        if self:IsA("NumberValue") and self.Name:match(Offset.Recoil) and key == "Value" then return 0 end
-    end
-    if Settings.NoSpread.Enabled then
-        if self:IsA("LocalScript") and tostring(key):match(Offset.Spread) then return 0 end
-        if self:IsA("NumberValue") and self.Name:match(Offset.Spread) and key == "Value" then return 0 end
-    end
-    if Settings.RapidFire.Enabled then
-        if self:IsA("LocalScript") and tostring(key):match(Offset.FireRate) then return 0.01 end
-        if self:IsA("NumberValue") and self.Name:match(Offset.FireRate) and key == "Value" then return 0.01 end
-    end
-    if Settings.InfiniteAmmo.Enabled and self:IsA("IntValue") and self.Name == Offset.Ammo and key == "Value" then return 999 end
-    if Settings.InstantReload.Enabled and self:IsA("NumberValue") and self.Name == Offset.Reload and key == "Value" then return 0.01 end
-    if Settings.DamageMultiplier.Enabled and self:IsA("NumberValue") and self.Name == Offset.Damage and key == "Value" then return IndexHook(self, key) * Settings.DamageMultiplier.Value end
-    if Settings.GodMode.Enabled and self:IsA("IntValue") and self.Name == "Health" and key == "Value" then return 100 end
-    return IndexHook(self, key)
+pcall(function()
+    IndexHook = hookmetamethod(game, "__index", function(self, key)
+        if type(key) == "string" then
+            if Settings.NoRecoil.Enabled and self:IsA("LocalScript") and key:find(Offset.Recoil or "") then
+                return 0
+            end
+            if Settings.NoSpread.Enabled and self:IsA("LocalScript") and key:find(Offset.Spread or "") then
+                return 0
+            end
+            if Settings.RapidFire.Enabled and self:IsA("LocalScript") and key:find(Offset.FireRate or "") then
+                return 0.01
+            end
+            if Settings.InfiniteAmmo.Enabled and self:IsA("IntValue") and self.Name == Offset.Ammo and key == "Value" then
+                return 999
+            end
+            if Settings.InstantReload.Enabled and self:IsA("NumberValue") and self.Name == "ReloadTime" and key == "Value" then
+                return 0.01
+            end
+            if Settings.DamageMultiplier.Enabled and self:IsA("NumberValue") and self.Name == "Damage" and key == "Value" then
+                return IndexHook(self, key) * Settings.DamageMultiplier.Value
+            end
+            if Settings.GodMode.Enabled and self:IsA("IntValue") and self.Name == "Health" and key == "Value" then
+                return 100
+            end
+        end
+        
+        return IndexHook(self, key)
+    end)
 end)
 
+-- FOV Circle
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
 FOVCircle.Radius = Settings.SilentAim.FOV
@@ -243,381 +282,539 @@ FOVCircle.Filled = false
 FOVCircle.NumSides = 64
 FOVCircle.Transparency = 0.7
 
-local FlyBodyGyro, FlyBodyVelocity, FlyConnection
-local function StartFly()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChild("Humanoid")
-    if not root or not hum then return end
-    hum.PlatformStand = true
-    FlyBodyGyro = Instance.new("BodyGyro")
-    FlyBodyGyro.P = 9e4
-    FlyBodyGyro.MaxTorque = Vector3.new(9e4,9e4,9e4)
-    FlyBodyGyro.CFrame = root.CFrame
-    FlyBodyGyro.Parent = root
-    FlyBodyVelocity = Instance.new("BodyVelocity")
-    FlyBodyVelocity.Velocity = Vector3.new(0,0,0)
-    FlyBodyVelocity.MaxForce = Vector3.new(9e4,9e4,9e4)
-    FlyBodyVelocity.Parent = root
-    FlyConnection = RunService.Heartbeat:Connect(function()
-        if not Settings.Fly.Enabled or not char or not root then return end
-        local move = Vector3.new(0,0,0)
-        local cf = Camera.CFrame
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + cf.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - cf.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - cf.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + cf.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.new(0,1,0) end
-        FlyBodyVelocity.Velocity = move * Settings.Fly.Speed
-        FlyBodyGyro.CFrame = cf
-    end)
-end
-local function StopFly()
-    if FlyConnection then FlyConnection:Disconnect() end
-    FlyConnection = nil
-    local char = LocalPlayer.Character
-    if char then
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
-        if root then
-            if FlyBodyGyro then FlyBodyGyro:Destroy() end
-            if FlyBodyVelocity then FlyBodyVelocity:Destroy() end
-            FlyBodyGyro = nil
-            FlyBodyVelocity = nil
+-- Fly System
+local FlySystem = {
+    BodyGyro = nil,
+    BodyVelocity = nil,
+    Connection = nil,
+    
+    Start = function()
+        local character = LocalPlayer.Character
+        if not Utility.IsAlive(character) then return end
+        
+        local root = character.HumanoidRootPart
+        local humanoid = character.Humanoid
+        
+        humanoid.PlatformStand = true
+        
+        FlySystem.BodyGyro = Instance.new("BodyGyro")
+        FlySystem.BodyGyro.P = 9e4
+        FlySystem.BodyGyro.MaxTorque = Vector3.new(9e4, 9e4, 9e4)
+        FlySystem.BodyGyro.CFrame = root.CFrame
+        FlySystem.BodyGyro.Parent = root
+        
+        FlySystem.BodyVelocity = Instance.new("BodyVelocity")
+        FlySystem.BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        FlySystem.BodyVelocity.MaxForce = Vector3.new(9e4, 9e4, 9e4)
+        FlySystem.BodyVelocity.Parent = root
+        
+        FlySystem.Connection = RunService.Heartbeat:Connect(function()
+            if not Settings.Fly.Enabled or not Utility.IsAlive(character) then
+                return
+            end
+            
+            local move = Vector3.new(0, 0, 0)
+            local cf = Camera.CFrame
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + cf.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - cf.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - cf.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + cf.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.new(0, 1, 0) end
+            
+            FlySystem.BodyVelocity.Velocity = move * Settings.Fly.Speed
+            FlySystem.BodyGyro.CFrame = cf
+        end)
+    end,
+    
+    Stop = function()
+        if FlySystem.Connection then
+            FlySystem.Connection:Disconnect()
+            FlySystem.Connection = nil
         end
-        if hum then hum.PlatformStand = false end
-    end
-end
-
-local HitboxHighlights = {}
-local function CreateHitbox(p)
-    if p == LocalPlayer then return end
-    if HitboxHighlights[p] then pcall(function() HitboxHighlights[p]:Destroy() end) end
-    local h = Instance.new("Highlight")
-    h.Name = "XDHub_Hitbox"
-    h.Adornee = p.Character
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.FillColor = Settings.Hitbox.Color
-    h.FillTransparency = Settings.Hitbox.Transparency
-    h.OutlineColor = Color3.fromRGB(255,255,255)
-    h.OutlineTransparency = 0.5
-    h.Parent = CoreGui
-    HitboxHighlights[p] = h
-end
-local function RemoveHitbox(p)
-    if HitboxHighlights[p] then
-        pcall(function() HitboxHighlights[p]:Destroy() end)
-        HitboxHighlights[p] = nil
-    end
-end
-local function UpdateHitboxes()
-    if not Settings.Hitbox.Enabled then
-        for p,_ in pairs(HitboxHighlights) do RemoveHitbox(p) end
-        return
-    end
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            if not Settings.Hitbox.TeamCheck or p.Team ~= LocalPlayer.Team then
-                if not HitboxHighlights[p] then
-                    CreateHitbox(p)
-                else
-                    local h = HitboxHighlights[p]
-                    h.FillColor = Settings.Hitbox.Color
-                    h.FillTransparency = Settings.Hitbox.Transparency
-                    h.Adornee = p.Character
-                end
-            else
-                RemoveHitbox(p)
+        
+        local character = LocalPlayer.Character
+        if character then
+            local root = character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character:FindFirstChild("Humanoid")
+            
+            if FlySystem.BodyGyro then
+                FlySystem.BodyGyro:Destroy()
+                FlySystem.BodyGyro = nil
+            end
+            
+            if FlySystem.BodyVelocity then
+                FlySystem.BodyVelocity:Destroy()
+                FlySystem.BodyVelocity = nil
+            end
+            
+            if humanoid then
+                humanoid.PlatformStand = false
             end
         end
     end
-end
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function()
-        task.wait(0.5)
-        if Settings.Hitbox.Enabled and (not Settings.Hitbox.TeamCheck or p.Team ~= LocalPlayer.Team) then
-            CreateHitbox(p)
-        end
-    end)
-end)
-Players.PlayerRemoving:Connect(RemoveHitbox)
-
-local ESPObjects = {}
-local SkeletonJoints = {
-    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},
-    {"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},
-    {"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},
-    {"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},
-    {"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}
 }
-local function CreateESP(p)
-    if p == LocalPlayer then return end
-    local o = {}
-    o.Box = Drawing.new("Square")
-    o.Box.Visible = false
-    o.Box.Color = Settings.ESP.BoxColor
-    o.Box.Thickness = 1.5
-    o.Box.Filled = false
-    o.BoxOutline = Drawing.new("Square")
-    o.BoxOutline.Visible = false
-    o.BoxOutline.Color = Color3.fromRGB(0,0,0)
-    o.BoxOutline.Thickness = 3
-    o.BoxOutline.Filled = false
-    o.Name = Drawing.new("Text")
-    o.Name.Visible = false
-    o.Name.Color = Settings.ESP.NameColor
-    o.Name.Size = 16
-    o.Name.Center = true
-    o.Name.Outline = true
-    o.Health = Drawing.new("Text")
-    o.Health.Visible = false
-    o.Health.Color = Settings.ESP.HealthColor
-    o.Health.Size = 14
-    o.Health.Center = true
-    o.Health.Outline = true
-    o.Distance = Drawing.new("Text")
-    o.Distance.Visible = false
-    o.Distance.Color = Settings.ESP.DistanceColor
-    o.Distance.Size = 12
-    o.Distance.Center = true
-    o.Distance.Outline = true
-    o.Tracer = Drawing.new("Line")
-    o.Tracer.Visible = false
-    o.Tracer.Color = Settings.ESP.TracerColor
-    o.Tracer.Thickness = 1.5
-    o.HeadDot = Drawing.new("Circle")
-    o.HeadDot.Visible = false
-    o.HeadDot.Color = Settings.ESP.HeadDotColor
-    o.HeadDot.Radius = Settings.ESP.HeadDotSize
-    o.HeadDot.Filled = true
-    o.HeadDot.NumSides = 16
-    o.Weapon = Drawing.new("Text")
-    o.Weapon.Visible = false
-    o.Weapon.Color = Settings.ESP.WeaponColor
-    o.Weapon.Size = 12
-    o.Weapon.Center = true
-    o.Weapon.Outline = true
-    o.Skeleton = {}
-    for i = 1, 14 do
-        local l = Drawing.new("Line")
-        l.Visible = false
-        l.Color = Settings.ESP.SkeletonColor
-        l.Thickness = 1.5
-        table.insert(o.Skeleton, l)
-    end
-    ESPObjects[p] = o
-end
-local function UpdateESP()
-    if not Settings.ESP.Enabled then
-        for p, o in pairs(ESPObjects) do
-            for _, obj in pairs(o) do
-                if type(obj) == "table" then
-                    for _, l in pairs(obj) do
-                        l.Visible = false
+
+-- Hitbox System
+local HitboxSystem = {
+    Highlights = {},
+    
+    Create = function(player)
+        if player == LocalPlayer then return end
+        if not Utility.IsAlive(player.Character) then return end
+        
+        HitboxSystem.Remove(player)
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "xdhubz_Hitbox"
+        highlight.Adornee = player.Character
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.FillColor = Settings.Hitbox.Color
+        highlight.FillTransparency = Settings.Hitbox.Transparency
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0.5
+        highlight.Parent = CoreGui
+        
+        HitboxSystem.Highlights[player] = highlight
+    end,
+    
+    Remove = function(player)
+        if HitboxSystem.Highlights[player] then
+            pcall(function()
+                HitboxSystem.Highlights[player]:Destroy()
+            end)
+            HitboxSystem.Highlights[player] = nil
+        end
+    end,
+    
+    UpdateAll = function()
+        if not Settings.Hitbox.Enabled then
+            for player, _ in pairs(HitboxSystem.Highlights) do
+                HitboxSystem.Remove(player)
+            end
+            return
+        end
+        
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and Utility.IsAlive(player.Character) then
+                local isValid = not Settings.Hitbox.TeamCheck or player.Team ~= LocalPlayer.Team
+                
+                if isValid then
+                    if HitboxSystem.Highlights[player] then
+                        local highlight = HitboxSystem.Highlights[player]
+                        highlight.FillColor = Settings.Hitbox.Color
+                        highlight.FillTransparency = Settings.Hitbox.Transparency
+                        highlight.Adornee = player.Character
+                    else
+                        HitboxSystem.Create(player)
                     end
                 else
-                    if obj.Visible ~= nil then
-                        obj.Visible = false
-                    end
+                    HitboxSystem.Remove(player)
                 end
             end
         end
-        return
     end
-    for p, o in pairs(ESPObjects) do
-        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
-            local root = p.Character.HumanoidRootPart
-            local hum = p.Character.Humanoid
-            local head = p.Character:FindFirstChild("Head")
-            local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-            local headPos = head and Camera:WorldToViewportPoint(head.Position) or pos
-            local dist = (root.Position - Camera.CFrame.Position).Magnitude
-            if onScreen then
-                local scale = 1 / (pos.Z * 0.1)
-                local w = math.clamp(35 * scale, 25, 80)
-                local h = math.clamp(60 * scale, 40, 140)
-                local boxPos = Vector2.new(pos.X - w / 2, pos.Y - h / 2)
-                local boxColor = p.Team == LocalPlayer.Team and Color3.fromRGB(100,255,100) or Settings.ESP.BoxColor
-                if Settings.ESP.Box and Settings.ESP.BoxOutline then
-                    o.BoxOutline.Visible = true
-                    o.BoxOutline.Position = boxPos - Vector2.new(1,1)
-                    o.BoxOutline.Size = Vector2.new(w+2, h+2)
-                else
-                    o.BoxOutline.Visible = false
-                end
-                if Settings.ESP.Box then
-                    o.Box.Visible = true
-                    o.Box.Position = boxPos
-                    o.Box.Size = Vector2.new(w, h)
-                    o.Box.Color = boxColor
-                else
-                    o.Box.Visible = false
-                end
-                if Settings.ESP.Name then
-                    o.Name.Visible = true
-                    o.Name.Position = Vector2.new(pos.X, boxPos.Y - 20)
-                    o.Name.Text = p.Name
-                    o.Name.Color = Settings.ESP.NameColor
-                else
-                    o.Name.Visible = false
-                end
-                if Settings.ESP.Health and hum then
-                    o.Health.Visible = true
-                    o.Health.Position = Vector2.new(pos.X, boxPos.Y + h + 5)
-                    o.Health.Text = math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)
-                    o.Health.Color = Settings.ESP.HealthColor
-                else
-                    o.Health.Visible = false
-                end
-                if Settings.ESP.Distance then
-                    o.Distance.Visible = true
-                    o.Distance.Position = Vector2.new(pos.X, boxPos.Y + h + 25)
-                    o.Distance.Text = math.floor(dist) .. "s"
-                    o.Distance.Color = Settings.ESP.DistanceColor
-                else
-                    o.Distance.Visible = false
-                end
-                if Settings.ESP.Tracer then
-                    o.Tracer.Visible = true
-                    if Settings.ESP.TracerStart == "Bottom" then
-                        o.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                    elseif Settings.ESP.TracerStart == "Center" then
-                        o.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                    else
-                        o.Tracer.From = UserInputService:GetMouseLocation()
+}
+
+-- ESP System
+local ESPSystem = {
+    Objects = {},
+    SkeletonJoints = {
+        {"Head", "UpperTorso"},
+        {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"},
+        {"LeftUpperArm", "LeftLowerArm"},
+        {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"},
+        {"RightUpperArm", "RightLowerArm"},
+        {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"},
+        {"LeftUpperLeg", "LeftLowerLeg"},
+        {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"},
+        {"RightUpperLeg", "RightLowerLeg"},
+        {"RightLowerLeg", "RightFoot"}
+    },
+    
+    Create = function(player)
+        if player == LocalPlayer then return end
+        
+        local objects = {}
+        
+        -- Box
+        objects.Box = Drawing.new("Square")
+        objects.Box.Visible = false
+        objects.Box.Color = Settings.ESP.BoxColor
+        objects.Box.Thickness = 1.5
+        objects.Box.Filled = false
+        
+        -- Box Outline
+        objects.BoxOutline = Drawing.new("Square")
+        objects.BoxOutline.Visible = false
+        objects.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+        objects.BoxOutline.Thickness = 3
+        objects.BoxOutline.Filled = false
+        
+        -- Name
+        objects.Name = Drawing.new("Text")
+        objects.Name.Visible = false
+        objects.Name.Color = Color3.fromRGB(255, 255, 255)
+        objects.Name.Size = 16
+        objects.Name.Center = true
+        objects.Name.Outline = true
+        
+        -- Health
+        objects.Health = Drawing.new("Text")
+        objects.Health.Visible = false
+        objects.Health.Color = Color3.fromRGB(100, 255, 100)
+        objects.Health.Size = 14
+        objects.Health.Center = true
+        objects.Health.Outline = true
+        
+        -- Distance
+        objects.Distance = Drawing.new("Text")
+        objects.Distance.Visible = false
+        objects.Distance.Color = Color3.fromRGB(200, 200, 200)
+        objects.Distance.Size = 12
+        objects.Distance.Center = true
+        objects.Distance.Outline = true
+        
+        -- Tracer
+        objects.Tracer = Drawing.new("Line")
+        objects.Tracer.Visible = false
+        objects.Tracer.Color = Color3.fromRGB(255, 255, 255)
+        objects.Tracer.Thickness = 1.5
+        
+        -- Head Dot
+        objects.HeadDot = Drawing.new("Circle")
+        objects.HeadDot.Visible = false
+        objects.HeadDot.Color = Color3.fromRGB(255, 0, 0)
+        objects.HeadDot.Radius = 4
+        objects.HeadDot.Filled = true
+        objects.HeadDot.NumSides = 16
+        
+        -- Weapon
+        objects.Weapon = Drawing.new("Text")
+        objects.Weapon.Visible = false
+        objects.Weapon.Color = Color3.fromRGB(255, 255, 0)
+        objects.Weapon.Size = 12
+        objects.Weapon.Center = true
+        objects.Weapon.Outline = true
+        
+        -- Skeleton
+        objects.Skeleton = {}
+        for i = 1, #ESPSystem.SkeletonJoints do
+            local line = Drawing.new("Line")
+            line.Visible = false
+            line.Color = Color3.fromRGB(255, 255, 255)
+            line.Thickness = 1.5
+            table.insert(objects.Skeleton, line)
+        end
+        
+        ESPSystem.Objects[player] = objects
+    end,
+    
+    Remove = function(player)
+        if ESPSystem.Objects[player] then
+            for _, object in pairs(ESPSystem.Objects[player]) do
+                if type(object) == "table" then
+                    for _, line in pairs(object) do
+                        pcall(function() line:Remove() end)
                     end
-                    o.Tracer.To = Vector2.new(pos.X, pos.Y)
-                    o.Tracer.Color = Settings.ESP.TracerColor
                 else
-                    o.Tracer.Visible = false
+                    pcall(function() object:Remove() end)
                 end
-                if Settings.ESP.HeadDot and head then
-                    o.HeadDot.Visible = true
-                    o.HeadDot.Position = Vector2.new(headPos.X, headPos.Y)
-                    o.HeadDot.Color = Settings.ESP.HeadDotColor
-                    o.HeadDot.Radius = Settings.ESP.HeadDotSize
-                else
-                    o.HeadDot.Visible = false
+            end
+            ESPSystem.Objects[player] = nil
+        end
+    end,
+    
+    Update = function()
+        if not Settings.ESP.Enabled then
+            for player, objects in pairs(ESPSystem.Objects) do
+                for _, object in pairs(objects) do
+                    if type(object) == "table" then
+                        for _, line in pairs(object) do
+                            line.Visible = false
+                        end
+                    elseif object.Visible ~= nil then
+                        object.Visible = false
+                    end
                 end
-                if Settings.ESP.Weapon then
-                    o.Weapon.Visible = true
-                    o.Weapon.Position = Vector2.new(pos.X, boxPos.Y - 40)
-                    local tool = p.Character:FindFirstChildOfClass("Tool")
-                    o.Weapon.Text = tool and tool.Name or "None"
-                    o.Weapon.Color = Settings.ESP.WeaponColor
-                else
-                    o.Weapon.Visible = false
-                end
-                if Settings.ESP.Skeleton then
-                    for i, joints in ipairs(SkeletonJoints) do
-                        local p1 = p.Character:FindFirstChild(joints[1])
-                        local p2 = p.Character:FindFirstChild(joints[2])
-                        if p1 and p2 then
-                            local pos1, v1 = Camera:WorldToViewportPoint(p1.Position)
-                            local pos2, v2 = Camera:WorldToViewportPoint(p2.Position)
-                            if v1 and v2 then
-                                o.Skeleton[i].Visible = true
-                                o.Skeleton[i].From = Vector2.new(pos1.X, pos1.Y)
-                                o.Skeleton[i].To = Vector2.new(pos2.X, pos2.Y)
-                                o.Skeleton[i].Color = Settings.ESP.SkeletonColor
+            end
+            return
+        end
+        
+        for player, objects in pairs(ESPSystem.Objects) do
+            if Utility.IsAlive(player.Character) then
+                local root = player.Character.HumanoidRootPart
+                local humanoid = player.Character.Humanoid
+                local head = player.Character:FindFirstChild("Head")
+                
+                local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                local headPos = head and Camera:WorldToViewportPoint(head.Position) or rootPos
+                local distance = (root.Position - Camera.CFrame.Position).Magnitude
+                
+                if onScreen then
+                    local scale = 1 / (rootPos.Z * 0.1)
+                    local width = math.clamp(35 * scale, 25, 80)
+                    local height = math.clamp(60 * scale, 40, 140)
+                    local boxPos = Vector2.new(rootPos.X - width / 2, rootPos.Y - height / 2)
+                    local boxColor = player.Team == LocalPlayer.Team and Color3.fromRGB(100, 255, 100) or Settings.ESP.BoxColor
+                    
+                    -- Box
+                    if Settings.ESP.Box then
+                        objects.Box.Visible = true
+                        objects.Box.Position = boxPos
+                        objects.Box.Size = Vector2.new(width, height)
+                        objects.Box.Color = boxColor
+                    else
+                        objects.Box.Visible = false
+                    end
+                    
+                    -- Box Outline
+                    if Settings.ESP.BoxOutline and Settings.ESP.Box then
+                        objects.BoxOutline.Visible = true
+                        objects.BoxOutline.Position = boxPos - Vector2.new(1, 1)
+                        objects.BoxOutline.Size = Vector2.new(width + 2, height + 2)
+                    else
+                        objects.BoxOutline.Visible = false
+                    end
+                    
+                    -- Name
+                    if Settings.ESP.Name then
+                        objects.Name.Visible = true
+                        objects.Name.Position = Vector2.new(rootPos.X, boxPos.Y - 20)
+                        objects.Name.Text = player.Name
+                    else
+                        objects.Name.Visible = false
+                    end
+                    
+                    -- Health
+                    if Settings.ESP.Health and humanoid then
+                        objects.Health.Visible = true
+                        objects.Health.Position = Vector2.new(rootPos.X, boxPos.Y + height + 5)
+                        objects.Health.Text = math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
+                        objects.Health.Color = Color3.fromRGB(100, 255, 100)
+                    else
+                        objects.Health.Visible = false
+                    end
+                    
+                    -- Distance
+                    if Settings.ESP.Distance then
+                        objects.Distance.Visible = true
+                        objects.Distance.Position = Vector2.new(rootPos.X, boxPos.Y + height + 25)
+                        objects.Distance.Text = math.floor(distance) .. " studs"
+                    else
+                        objects.Distance.Visible = false
+                    end
+                    
+                    -- Tracer
+                    if Settings.ESP.Tracer then
+                        objects.Tracer.Visible = true
+                        objects.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        objects.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+                    else
+                        objects.Tracer.Visible = false
+                    end
+                    
+                    -- Head Dot
+                    if Settings.ESP.HeadDot and head then
+                        objects.HeadDot.Visible = true
+                        objects.HeadDot.Position = Vector2.new(headPos.X, headPos.Y)
+                    else
+                        objects.HeadDot.Visible = false
+                    end
+                    
+                    -- Weapon
+                    if Settings.ESP.Weapon then
+                        objects.Weapon.Visible = true
+                        objects.Weapon.Position = Vector2.new(rootPos.X, boxPos.Y - 40)
+                        local tool = player.Character:FindFirstChildOfClass("Tool")
+                        objects.Weapon.Text = tool and tool.Name or "None"
+                    else
+                        objects.Weapon.Visible = false
+                    end
+                    
+                    -- Skeleton
+                    if Settings.ESP.Skeleton then
+                        for i, joints in ipairs(ESPSystem.SkeletonJoints) do
+                            local part1 = player.Character:FindFirstChild(joints[1])
+                            local part2 = player.Character:FindFirstChild(joints[2])
+                            
+                            if part1 and part2 then
+                                local pos1, vis1 = Camera:WorldToViewportPoint(part1.Position)
+                                local pos2, vis2 = Camera:WorldToViewportPoint(part2.Position)
+                                
+                                if vis1 and vis2 then
+                                    objects.Skeleton[i].Visible = true
+                                    objects.Skeleton[i].From = Vector2.new(pos1.X, pos1.Y)
+                                    objects.Skeleton[i].To = Vector2.new(pos2.X, pos2.Y)
+                                else
+                                    objects.Skeleton[i].Visible = false
+                                end
                             else
-                                o.Skeleton[i].Visible = false
+                                objects.Skeleton[i].Visible = false
                             end
-                        else
-                            o.Skeleton[i].Visible = false
+                        end
+                    else
+                        for _, line in pairs(objects.Skeleton) do
+                            line.Visible = false
                         end
                     end
                 else
-                    for _, l in pairs(o.Skeleton) do
-                        l.Visible = false
+                    -- Hide all if off screen
+                    objects.Box.Visible = false
+                    objects.BoxOutline.Visible = false
+                    objects.Name.Visible = false
+                    objects.Health.Visible = false
+                    objects.Distance.Visible = false
+                    objects.Tracer.Visible = false
+                    objects.HeadDot.Visible = false
+                    objects.Weapon.Visible = false
+                    for _, line in pairs(objects.Skeleton) do
+                        line.Visible = false
                     end
                 end
             else
-                o.Box.Visible = false
-                o.BoxOutline.Visible = false
-                o.Name.Visible = false
-                o.Health.Visible = false
-                o.Distance.Visible = false
-                o.Tracer.Visible = false
-                o.HeadDot.Visible = false
-                o.Weapon.Visible = false
-                for _, l in pairs(o.Skeleton) do
-                    l.Visible = false
+                -- Hide all if dead
+                objects.Box.Visible = false
+                objects.BoxOutline.Visible = false
+                objects.Name.Visible = false
+                objects.Health.Visible = false
+                objects.Distance.Visible = false
+                objects.Tracer.Visible = false
+                objects.HeadDot.Visible = false
+                objects.Weapon.Visible = false
+                for _, line in pairs(objects.Skeleton) do
+                    line.Visible = false
                 end
             end
+        end
+    end
+}
+
+-- World Effects
+local WorldEffects = {
+    OriginalBrightness = Lighting.Brightness,
+    OriginalFogEnd = Lighting.FogEnd,
+    OriginalGlobalShadows = Lighting.GlobalShadows,
+    OriginalAmbient = Lighting.Ambient,
+    OriginalOutdoorAmbient = Lighting.OutdoorAmbient,
+    
+    Update = function()
+        -- Full Bright
+        if Settings.World.FullBright.Enabled then
+            Lighting.Brightness = 2
+            Lighting.GlobalShadows = false
+            Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
         else
-            o.Box.Visible = false
-            o.BoxOutline.Visible = false
-            o.Name.Visible = false
-            o.Health.Visible = false
-            o.Distance.Visible = false
-            o.Tracer.Visible = false
-            o.HeadDot.Visible = false
-            o.Weapon.Visible = false
-            for _, l in pairs(o.Skeleton) do
-                l.Visible = false
-            end
+            Lighting.Brightness = WorldEffects.OriginalBrightness
+            Lighting.GlobalShadows = WorldEffects.OriginalGlobalShadows
+            Lighting.Ambient = WorldEffects.OriginalAmbient
+            Lighting.OutdoorAmbient = WorldEffects.OriginalOutdoorAmbient
+        end
+        
+        -- No Fog
+        if Settings.World.NoFog.Enabled then
+            Lighting.FogEnd = 100000
+        else
+            Lighting.FogEnd = WorldEffects.OriginalFogEnd
+        end
+        
+        -- No Shadows
+        if Settings.World.NoShadows.Enabled then
+            Lighting.GlobalShadows = false
+        elseif not Settings.World.FullBright.Enabled then
+            Lighting.GlobalShadows = WorldEffects.OriginalGlobalShadows
         end
     end
-end
-for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
-Players.PlayerAdded:Connect(CreateESP)
-Players.PlayerRemoving:Connect(function(p)
-    if ESPObjects[p] then
-        for _, obj in pairs(ESPObjects[p]) do
-            if type(obj) == "table" then
-                for _, l in pairs(obj) do
-                    pcall(function() l:Remove() end)
-                end
-            else
-                pcall(function() obj:Remove() end)
-            end
+}
+
+-- Anti-AFK
+local AntiAfkSystem = {
+    Connection = nil,
+    
+    Start = function()
+        if AntiAfkSystem.Connection then
+            AntiAfkSystem.Connection:Disconnect()
         end
-        ESPObjects[p] = nil
+        
+        AntiAfkSystem.Connection = LocalPlayer.Idled:Connect(function()
+            if Settings.AntiAfk.Enabled then
+                local VirtualUser = game:GetService("VirtualUser")
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end
+        end)
+    end,
+    
+    Stop = function()
+        if AntiAfkSystem.Connection then
+            AntiAfkSystem.Connection:Disconnect()
+            AntiAfkSystem.Connection = nil
+        end
     end
-end)
-RunService.RenderStepped:Connect(UpdateESP)
+}
 
-local OriginalBrightness = Lighting.Brightness
-local OriginalFogEnd = Lighting.FogEnd
-local OriginalGlobalShadows = Lighting.GlobalShadows
-local OriginalAmbient = Lighting.Ambient
-local function UpdateWorld()
-    if Settings.World.FullBright.Enabled then
-        Lighting.Brightness = 2
-        Lighting.GlobalShadows = false
-        Lighting.Ambient = Color3.fromRGB(255,255,255)
-    else
-        Lighting.Brightness = OriginalBrightness
-        Lighting.GlobalShadows = OriginalGlobalShadows
-        Lighting.Ambient = OriginalAmbient
-    end
-    if Settings.World.NoFog.Enabled then
-        Lighting.FogEnd = 100000
-    else
-        Lighting.FogEnd = OriginalFogEnd
-    end
-    if Settings.World.NoShadows.Enabled then
-        Lighting.GlobalShadows = false
-    elseif not Settings.World.FullBright.Enabled then
-        Lighting.GlobalShadows = OriginalGlobalShadows
-    end
+-- Initialize ESP for existing players
+for _, player in pairs(Players:GetPlayers()) do
+    ESPSystem.Create(player)
 end
 
-UserInputService.InputBegan:Connect(function(i)
-    if Settings.Aimlock.Enabled and (i.UserInputType == Settings.Aimlock.Key or i.KeyCode == Enum.KeyCode[tostring(Settings.Aimlock.Key)]) then
-        Settings.Aimlock.Holding = true
+-- Initialize Anti-AFK
+AntiAfkSystem.Start()
+
+-- Connections
+Players.PlayerAdded:Connect(function(player)
+    ESPSystem.Create(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if Settings.Hitbox.Enabled then
+            HitboxSystem.UpdateAll()
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    ESPSystem.Remove(player)
+    HitboxSystem.Remove(player)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    
+    if Settings.Fly.Enabled then
+        FlySystem.Stop()
+        task.wait(0.1)
+        FlySystem.Start()
+    end
+    
+    if Settings.Hitbox.Enabled then
+        HitboxSystem.UpdateAll()
     end
 end)
-UserInputService.InputEnded:Connect(function(i)
-    if i.UserInputType == Settings.Aimlock.Key or i.KeyCode == Enum.KeyCode[tostring(Settings.Aimlock.Key)] then
+
+-- Input handling for aimlock
+UserInputService.InputBegan:Connect(function(input)
+    if Settings.Aimlock.Enabled then
+        if input.UserInputType == Settings.Aimlock.Key or input.KeyCode == Enum.KeyCode[tostring(Settings.Aimlock.Key)] then
+            Settings.Aimlock.Holding = true
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Settings.Aimlock.Key or input.KeyCode == Enum.KeyCode[tostring(Settings.Aimlock.Key)] then
         Settings.Aimlock.Holding = false
     end
 end)
 
+-- RenderStepped loop
 RunService.RenderStepped:Connect(function()
+    -- FOV Circle
     if Settings.SilentAim.ShowFOV then
         FOVCircle.Visible = true
         FOVCircle.Position = UserInputService:GetMouseLocation()
@@ -625,43 +822,62 @@ RunService.RenderStepped:Connect(function()
     else
         FOVCircle.Visible = false
     end
+    
+    -- Aimlock
     if Settings.Aimlock.Enabled and Settings.Aimlock.Holding then
-        local target = nil
-        local closest = math.huge
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.Aimlock.TargetPart) then
-                if not Settings.SilentAim.TeamCheck or p.Team ~= LocalPlayer.Team then
-                    local part = p.Character[Settings.Aimlock.TargetPart]
-                    local screen, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local dist = (Vector2.new(screen.X, screen.Y) - UserInputService:GetMouseLocation()).Magnitude
-                        if dist < closest then
-                            closest = dist
-                            target = part
-                        end
-                    end
+        local closest = Utility.GetClosestPlayer(Settings.SilentAim.TeamCheck, math.huge, Settings.Aimlock.TargetPart)
+        if closest then
+            local targetPos = closest.Part.Position
+            local currentLook = Camera.CFrame.LookVector
+            local targetDir = (targetPos - Camera.CFrame.Position).Unit
+            local smooth = currentLook:Lerp(targetDir, 1 / Settings.Aimlock.Smoothness)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + smooth)
+        end
+    end
+    
+    -- Update ESP
+    ESPSystem.Update()
+end)
+
+-- Stepped loop for movement
+RunService.Stepped:Connect(function()
+    local character = LocalPlayer.Character
+    
+    if Utility.IsAlive(character) then
+        local humanoid = character.Humanoid
+        
+        -- Noclip
+        if Settings.Noclip.Enabled then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
                 end
             end
         end
-        if target then
-            local current = Camera.CFrame.LookVector
-            local targetDir = (target.Position - Camera.CFrame.Position).Unit
-            local smooth = current:Lerp(targetDir, 1 / Settings.Aimlock.Smoothness)
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + smooth)
+        
+        -- Speed
+        if Settings.Speed.Enabled then
+            humanoid.WalkSpeed = Settings.Speed.Amount
+        end
+        
+        -- Jump Power
+        if Settings.Jump.Enabled then
+            humanoid.JumpPower = Settings.Jump.Amount
         end
     end
 end)
 
+-- Triggerbot
 task.spawn(function()
     while task.wait() do
         if Settings.Triggerbot.Enabled then
             local target = Mouse.Target
             if target then
-                local char = target.Parent
-                if char and char:FindFirstChild("Humanoid") then
-                    local p = Players:GetPlayerFromCharacter(char)
-                    if p and p ~= LocalPlayer then
-                        if not Settings.SilentAim.TeamCheck or p.Team ~= LocalPlayer.Team then
+                local character = target.Parent
+                if character and character:FindFirstChild("Humanoid") then
+                    local player = Players:GetPlayerFromCharacter(character)
+                    if player and player ~= LocalPlayer then
+                        if not Settings.SilentAim.TeamCheck or player.Team ~= LocalPlayer.Team then
                             task.wait(Settings.Triggerbot.Delay)
                             mouse1click()
                         end
@@ -672,247 +888,386 @@ task.spawn(function()
     end
 end)
 
-if Settings.AntiAfk.Enabled then
-    LocalPlayer.Idled:Connect(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    if Settings.Fly.Enabled then
-        StopFly()
-        task.wait(0.1)
-        StartFly()
-    end
-    if Settings.Hitbox.Enabled then
-        UpdateHitboxes()
-    end
-end)
-
-RunService.Stepped:Connect(function()
-    if Settings.Noclip.Enabled and LocalPlayer.Character then
-        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
-            end
-        end
-    end
-    if Settings.Speed.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = Settings.Speed.Amount
-    end
-    if Settings.Jump.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.JumpPower = Settings.Jump.Amount
-    end
-end)
-
+-- Infinite Jump
 UserInputService.JumpRequest:Connect(function()
-    if Settings.InfiniteJump.Enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+    if Settings.InfiniteJump.Enabled and Utility.IsAlive(LocalPlayer.Character) then
         LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-local Window = Rayfield:CreateWindow({
-    Name = "Unnamed XD Hub | " .. GameData.Current,
-    LoadingTitle = "Unnamed XD Hub",
-    LoadingSubtitle = "by @mqp6 / Poc",
-    ConfigurationSaving = {Enabled = true, FolderName = "UnnamedXDHub", FileName = "Config"},
-    Discord = {Enabled = true, Invite = "rmpQfYtnWd", RememberJoins = true},
-    KeySystem = false
-})
+-- World Effects Update loop
+task.spawn(function()
+    while task.wait(0.5) do
+        WorldEffects.Update()
+    end
+end)
 
-local TabCombat = Window:CreateTab("Combat", 4483362458)
-local TabMovement = Window:CreateTab("Movement", 4483362458)
-local TabVisuals = Window:CreateTab("Visuals", 4483362458)
-local TabWorld = Window:CreateTab("World", 4483362458)
-local TabMisc = Window:CreateTab("Misc", 4483362458)
-local TabInfo = Window:CreateTab("Info", 4483362458)
-local TabGame = Window:CreateTab(GameData.Current, 4483362458)
+-- ==================== UI CREATION ====================
+-- (UI Agnostic implementation)
 
-TabCombat:CreateSection("Silent Aim")
-local saenabled = TabCombat:CreateToggle({Name = "Enabled", CurrentValue = false, Callback = function(v) Settings.SilentAim.Enabled = v end})
-local sahitbox = TabCombat:CreateDropdown({Name = "Hitbox", Options = {"Head","UpperTorso","LowerTorso","HumanoidRootPart"}, CurrentOption = {"Head"}, Callback = function(v) Settings.SilentAim.HitPart = v[1] end})
-local safov = TabCombat:CreateSlider({Name = "FOV", Range = {30,200}, Increment = 5, CurrentValue = 90, Callback = function(v) Settings.SilentAim.FOV = v end})
-local sapred = TabCombat:CreateSlider({Name = "Prediction", Range = {0,300}, Increment = 5, CurrentValue = 165, Callback = function(v) Settings.SilentAim.Prediction = v / 1000 end})
-local sateam = TabCombat:CreateToggle({Name = "Team Check", CurrentValue = true, Callback = function(v) Settings.SilentAim.TeamCheck = v end})
-local sawall = TabCombat:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = function(v) Settings.SilentAim.WallCheck = v end})
-local safovcircle = TabCombat:CreateToggle({Name = "Show FOV", CurrentValue = false, Callback = function(v) Settings.SilentAim.ShowFOV = v end})
-
-TabCombat:CreateSection("Aimlock")
-local alenabled = TabCombat:CreateToggle({Name = "Enabled", CurrentValue = false, Callback = function(v) Settings.Aimlock.Enabled = v end})
-local alsmooth = TabCombat:CreateSlider({Name = "Smoothness", Range = {1,15}, Increment = 1, CurrentValue = 5, Callback = function(v) Settings.Aimlock.Smoothness = v end})
-local altarget = TabCombat:CreateDropdown({Name = "Target", Options = {"Head","UpperTorso","LowerTorso","HumanoidRootPart"}, CurrentOption = {"Head"}, Callback = function(v) Settings.Aimlock.TargetPart = v[1] end})
-
-TabCombat:CreateSection("Triggerbot")
-local tbenabled = TabCombat:CreateToggle({Name = "Enabled", CurrentValue = false, Callback = function(v) Settings.Triggerbot.Enabled = v end})
-local tbdelay = TabCombat:CreateSlider({Name = "Delay (ms)", Range = {0,200}, Increment = 10, CurrentValue = 50, Callback = function(v) Settings.Triggerbot.Delay = v / 1000 end})
-
-TabCombat:CreateSection("Hitbox Expander")
-local hbenabled = TabCombat:CreateToggle({Name = "Enabled", CurrentValue = false, Callback = function(v) Settings.Hitbox.Enabled = v; if v then UpdateHitboxes() else for p,_ in pairs(HitboxHighlights) do RemoveHitbox(p) end end end})
-local hbsize = TabCombat:CreateSlider({Name = "Size", Range = {1,5}, Increment = 0.1, CurrentValue = 2.5, Callback = function(v) Settings.Hitbox.Size = v end})
-local hbtrans = TabCombat:CreateSlider({Name = "Transparency", Range = {0,1}, Increment = 0.1, CurrentValue = 0.7, Callback = function(v) Settings.Hitbox.Transparency = v; if Settings.Hitbox.Enabled then UpdateHitboxes() end end})
-local hbteam = TabCombat:CreateToggle({Name = "Team Check", CurrentValue = true, Callback = function(v) Settings.Hitbox.TeamCheck = v; if Settings.Hitbox.Enabled then UpdateHitboxes() end end})
-local hbcolor = TabCombat:CreateColorPicker({Name = "Color", CurrentValue = Color3.fromRGB(255,0,0), Callback = function(v) Settings.Hitbox.Color = v; if Settings.Hitbox.Enabled then UpdateHitboxes() end end})
-
-TabCombat:CreateSection("Gun Mods")
-local iatenabled = TabCombat:CreateToggle({Name = "Infinite Ammo", CurrentValue = false, Callback = function(v) Settings.InfiniteAmmo.Enabled = v end})
-local nrenabled = TabCombat:CreateToggle({Name = "No Recoil", CurrentValue = false, Callback = function(v) Settings.NoRecoil.Enabled = v end})
-local nspenabled = TabCombat:CreateToggle({Name = "No Spread", CurrentValue = false, Callback = function(v) Settings.NoSpread.Enabled = v end})
-local rfenabled = TabCombat:CreateToggle({Name = "Rapid Fire", CurrentValue = false, Callback = function(v) Settings.RapidFire.Enabled = v end})
-local irenabled = TabCombat:CreateToggle({Name = "Instant Reload", CurrentValue = false, Callback = function(v) Settings.InstantReload.Enabled = v end})
-local dmenabled = TabCombat:CreateToggle({Name = "Damage Multiplier", CurrentValue = false, Callback = function(v) Settings.DamageMultiplier.Enabled = v end})
-local dmvalue = TabCombat:CreateSlider({Name = "Damage Amount", Range = {1,10}, Increment = 1, CurrentValue = 1, Callback = function(v) Settings.DamageMultiplier.Value = v end})
-
-TabMovement:CreateSection("Fly")
-local flyenabled = TabMovement:CreateToggle({Name = "Enabled", CurrentValue = false, Callback = function(v) Settings.Fly.Enabled = v; if v then StartFly() else StopFly() end end})
-local flyspeed = TabMovement:CreateSlider({Name = "Speed", Range = {10,150}, Increment = 5, CurrentValue = 50, Callback = function(v) Settings.Fly.Speed = v end})
-
-TabMovement:CreateSection("Movement")
-local nclenabled = TabMovement:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) Settings.Noclip.Enabled = v end})
-local spdenabled = TabMovement:CreateToggle({Name = "Speed", CurrentValue = false, Callback = function(v) Settings.Speed.Enabled = v end})
-local spdvalue = TabMovement:CreateSlider({Name = "Speed Amount", Range = {16,250}, Increment = 1, CurrentValue = 32, Callback = function(v) Settings.Speed.Amount = v end})
-local jmpenabled = TabMovement:CreateToggle({Name = "Jump Power", CurrentValue = false, Callback = function(v) Settings.Jump.Enabled = v end})
-local jmpvalue = TabMovement:CreateSlider({Name = "Jump Amount", Range = {50,250}, Increment = 1, CurrentValue = 75, Callback = function(v) Settings.Jump.Amount = v end})
-local ijpenabled = TabMovement:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) Settings.InfiniteJump.Enabled = v end})
-
-TabVisuals:CreateSection("ESP")
-local espenabled = TabVisuals:CreateToggle({Name = "Enabled", CurrentValue = false, Callback = function(v) Settings.ESP.Enabled = v end})
-local espbox = TabVisuals:CreateToggle({Name = "Box", CurrentValue = true, Callback = function(v) Settings.ESP.Box = v end})
-local espboxoutline = TabVisuals:CreateToggle({Name = "Box Outline", CurrentValue = true, Callback = function(v) Settings.ESP.BoxOutline = v end})
-local espboxcolor = TabVisuals:CreateColorPicker({Name = "Box Color", CurrentValue = Color3.fromRGB(255,100,100), Callback = function(v) Settings.ESP.BoxColor = v end})
-local espname = TabVisuals:CreateToggle({Name = "Name", CurrentValue = true, Callback = function(v) Settings.ESP.Name = v end})
-local espnamecolor = TabVisuals:CreateColorPicker({Name = "Name Color", CurrentValue = Color3.fromRGB(255,255,255), Callback = function(v) Settings.ESP.NameColor = v end})
-local esphealth = TabVisuals:CreateToggle({Name = "Health", CurrentValue = true, Callback = function(v) Settings.ESP.Health = v end})
-local esphealthcolor = TabVisuals:CreateColorPicker({Name = "Health Color", CurrentValue = Color3.fromRGB(100,255,100), Callback = function(v) Settings.ESP.HealthColor = v end})
-local espdistance = TabVisuals:CreateToggle({Name = "Distance", CurrentValue = true, Callback = function(v) Settings.ESP.Distance = v end})
-local espdistancecolor = TabVisuals:CreateColorPicker({Name = "Distance Color", CurrentValue = Color3.fromRGB(200,200,200), Callback = function(v) Settings.ESP.DistanceColor = v end})
-local espweapon = TabVisuals:CreateToggle({Name = "Weapon", CurrentValue = true, Callback = function(v) Settings.ESP.Weapon = v end})
-local espweaponcolor = TabVisuals:CreateColorPicker({Name = "Weapon Color", CurrentValue = Color3.fromRGB(255,255,0), Callback = function(v) Settings.ESP.WeaponColor = v end})
-local esptracer = TabVisuals:CreateToggle({Name = "Tracer", CurrentValue = false, Callback = function(v) Settings.ESP.Tracer = v end})
-local esptracercolor = TabVisuals:CreateColorPicker({Name = "Tracer Color", CurrentValue = Color3.fromRGB(255,255,255), Callback = function(v) Settings.ESP.TracerColor = v end})
-local espheaddot = TabVisuals:CreateToggle({Name = "Head Dot", CurrentValue = false, Callback = function(v) Settings.ESP.HeadDot = v end})
-local espheaddotcolor = TabVisuals:CreateColorPicker({Name = "Head Dot Color", CurrentValue = Color3.fromRGB(255,0,0), Callback = function(v) Settings.ESP.HeadDotColor = v end})
-local espskeleton = TabVisuals:CreateToggle({Name = "Skeleton", CurrentValue = false, Callback = function(v) Settings.ESP.Skeleton = v end})
-local espskeletoncolor = TabVisuals:CreateColorPicker({Name = "Skeleton Color", CurrentValue = Color3.fromRGB(255,255,255), Callback = function(v) Settings.ESP.SkeletonColor = v end})
-
-TabWorld:CreateSection("Lighting")
-local wfb = TabWorld:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) Settings.World.FullBright.Enabled = v; UpdateWorld() end})
-local wnf = TabWorld:CreateToggle({Name = "No Fog", CurrentValue = false, Callback = function(v) Settings.World.NoFog.Enabled = v; UpdateWorld() end})
-local wns = TabWorld:CreateToggle({Name = "No Shadows", CurrentValue = false, Callback = function(v) Settings.World.NoShadows.Enabled = v; UpdateWorld() end})
-
-TabMisc:CreateSection("Player")
-local gm = TabMisc:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) Settings.GodMode.Enabled = v end})
-local afk = TabMisc:CreateToggle({Name = "Anti AFK", CurrentValue = false, Callback = function(v) Settings.AntiAfk.Enabled = v; if v then LocalPlayer.Idled:Connect(function() VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new()) end) end end})
-
-if GameData.Current == "Arsenal" then
-    TabGame:CreateSection("Arsenal")
-    TabGame:CreateToggle({Name = "Auto Kill", CurrentValue = false, Callback = function(v) Settings.Arsenal.AutoKill = v end})
-    TabGame:CreateToggle({Name = "Auto Win", CurrentValue = false, Callback = function(v) Settings.Arsenal.AutoWin = v end})
-    TabGame:CreateToggle({Name = "Force Field", CurrentValue = false, Callback = function(v) Settings.Arsenal.ForceField = v end})
-    TabGame:CreateToggle({Name = "Infinite Stamina", CurrentValue = false, Callback = function(v) Settings.Arsenal.InfiniteStamina = v end})
-    TabGame:CreateToggle({Name = "No Knockback", CurrentValue = false, Callback = function(v) Settings.Arsenal.NoKnockback = v end})
-    TabGame:CreateToggle({Name = "No Slowness", CurrentValue = false, Callback = function(v) Settings.Arsenal.NoSlowness = v end})
-    TabGame:CreateToggle({Name = "Auto Reload", CurrentValue = false, Callback = function(v) Settings.Arsenal.AutoReload = v end})
-    TabGame:CreateToggle({Name = "No Scope", CurrentValue = false, Callback = function(v) Settings.Arsenal.NoScope = v end})
+-- Main Tab
+if Tabs.Main.CreateParagraph then -- Rayfield
+    Tabs.Main:CreateParagraph({
+        Title = "xdhubz • 2026",
+        Content = string.format(
+            "Game: %s\nUser: %s\nMobile: %s\nStatus: Loaded",
+            Game,
+            LocalPlayer.Name,
+            UserInputService.TouchEnabled and "Yes" or "No"
+        )
+    })
+elseif Tabs.Main.AddParagraph then -- OwlHub
+    Tabs.Main:AddParagraph({
+        Title = "xdhubz • 2026",
+        Content = string.format(
+            "Game: %s\nUser: %s\nMobile: %s\nStatus: Loaded",
+            Game,
+            LocalPlayer.Name,
+            UserInputService.TouchEnabled and "Yes" or "No"
+        )
+    })
 end
 
-if GameData.Current == "DaHood" then
-    TabGame:CreateSection("Da Hood")
-    TabGame:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) Settings.DaHood.SilentAim = v end})
-    TabGame:CreateToggle({Name = "Aimlock", CurrentValue = false, Callback = function(v) Settings.DaHood.Aimlock = v end})
-    TabGame:CreateToggle({Name = "Triggerbot", CurrentValue = false, Callback = function(v) Settings.DaHood.Triggerbot = v end})
-    TabGame:CreateToggle({Name = "Infinite Ammo", CurrentValue = false, Callback = function(v) Settings.DaHood.InfiniteAmmo = v end})
-    TabGame:CreateToggle({Name = "No Recoil", CurrentValue = false, Callback = function(v) Settings.DaHood.NoRecoil = v end})
-    TabGame:CreateToggle({Name = "Rapid Fire", CurrentValue = false, Callback = function(v) Settings.DaHood.RapidFire = v end})
-    TabGame:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) Settings.DaHood.GodMode = v end})
-    TabGame:CreateToggle({Name = "Auto Farm", CurrentValue = false, Callback = function(v) Settings.DaHood.AutoFarm = v end})
-    TabGame:CreateToggle({Name = "Auto Str", CurrentValue = false, Callback = function(v) Settings.DaHood.AutoStr = v end})
+-- Helper function for UI creation
+local function AddToggle(tab, name, default, callback)
+    if tab.CreateToggle then -- Rayfield
+        tab:CreateToggle({
+            Name = name,
+            CurrentValue = default,
+            Callback = callback
+        })
+    elseif tab.AddToggle then -- OwlHub
+        tab:AddToggle({
+            Name = name,
+            Default = default,
+            Callback = callback
+        })
+    end
 end
 
-if GameData.Current == "PhantomForces" then
-    TabGame:CreateSection("Phantom Forces")
-    TabGame:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) Settings.PhantomForces.SilentAim = v end})
-    TabGame:CreateToggle({Name = "Aimlock", CurrentValue = false, Callback = function(v) Settings.PhantomForces.Aimlock = v end})
-    TabGame:CreateToggle({Name = "Triggerbot", CurrentValue = false, Callback = function(v) Settings.PhantomForces.Triggerbot = v end})
-    TabGame:CreateToggle({Name = "Infinite Ammo", CurrentValue = false, Callback = function(v) Settings.PhantomForces.InfiniteAmmo = v end})
-    TabGame:CreateToggle({Name = "No Recoil", CurrentValue = false, Callback = function(v) Settings.PhantomForces.NoRecoil = v end})
-    TabGame:CreateToggle({Name = "No Spread", CurrentValue = false, Callback = function(v) Settings.PhantomForces.NoSpread = v end})
-    TabGame:CreateToggle({Name = "Rapid Fire", CurrentValue = false, Callback = function(v) Settings.PhantomForces.RapidFire = v end})
-    TabGame:CreateToggle({Name = "No Sway", CurrentValue = false, Callback = function(v) Settings.PhantomForces.NoSway = v end})
+local function AddSlider(tab, name, min, max, default, callback)
+    if tab.CreateSlider then -- Rayfield
+        tab:CreateSlider({
+            Name = name,
+            Range = {min, max},
+            Increment = (max - min) / 100,
+            CurrentValue = default,
+            Callback = callback
+        })
+    elseif tab.AddSlider then -- OwlHub
+        tab:AddSlider({
+            Name = name,
+            Min = min,
+            Max = max,
+            Default = default,
+            Callback = callback
+        })
+    end
 end
 
-if GameData.Current == "Rivals" then
-    TabGame:CreateSection("Rivals")
-    TabGame:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) Settings.Rivals.SilentAim = v end})
-    TabGame:CreateToggle({Name = "Aimlock", CurrentValue = false, Callback = function(v) Settings.Rivals.Aimlock = v end})
-    TabGame:CreateToggle({Name = "Triggerbot", CurrentValue = false, Callback = function(v) Settings.Rivals.Triggerbot = v end})
-    TabGame:CreateToggle({Name = "Infinite Ammo", CurrentValue = false, Callback = function(v) Settings.Rivals.InfiniteAmmo = v end})
-    TabGame:CreateToggle({Name = "No Recoil", CurrentValue = false, Callback = function(v) Settings.Rivals.NoRecoil = v end})
-    TabGame:CreateToggle({Name = "No Spread", CurrentValue = false, Callback = function(v) Settings.Rivals.NoSpread = v end})
-    TabGame:CreateToggle({Name = "Rapid Fire", CurrentValue = false, Callback = function(v) Settings.Rivals.RapidFire = v end})
+local function AddDropdown(tab, name, options, default, callback)
+    if tab.CreateDropdown then -- Rayfield
+        tab:CreateDropdown({
+            Name = name,
+            Options = options,
+            CurrentOption = {default},
+            Callback = function(v) callback(v[1]) end
+        })
+    elseif tab.AddDropdown then -- OwlHub
+        tab:AddDropdown({
+            Name = name,
+            Options = options,
+            Default = default,
+            Callback = callback
+        })
+    end
 end
 
-if GameData.Current == "BreakIn" then
-    TabGame:CreateSection("Break In")
-    TabGame:CreateToggle({Name = "ESP", CurrentValue = false, Callback = function(v) Settings.BreakIn.ESP = v end})
-    TabGame:CreateToggle({Name = "Hitbox", CurrentValue = false, Callback = function(v) Settings.BreakIn.Hitbox = v end})
-    TabGame:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) Settings.BreakIn.Fly = v end})
-    TabGame:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) Settings.BreakIn.Noclip = v end})
-    TabGame:CreateToggle({Name = "Speed", CurrentValue = false, Callback = function(v) Settings.BreakIn.Speed = v end})
-    TabGame:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) Settings.BreakIn.InfiniteJump = v end})
+local function AddColorPicker(tab, name, default, callback)
+    if tab.CreateColorPicker then -- Rayfield
+        tab:CreateColorPicker({
+            Name = name,
+            CurrentValue = default,
+            Callback = callback
+        })
+    elseif tab.AddColorPicker then -- OwlHub
+        tab:AddColorPicker({
+            Name = name,
+            Default = default,
+            Callback = callback
+        })
+    end
 end
 
-if GameData.Current == "BedWars" then
-    TabGame:CreateSection("BedWars")
-    TabGame:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) Settings.BedWars.SilentAim = v end})
-    TabGame:CreateToggle({Name = "Aimlock", CurrentValue = false, Callback = function(v) Settings.BedWars.Aimlock = v end})
-    TabGame:CreateToggle({Name = "Triggerbot", CurrentValue = false, Callback = function(v) Settings.BedWars.Triggerbot = v end})
-    TabGame:CreateToggle({Name = "ESP", CurrentValue = false, Callback = function(v) Settings.BedWars.ESP = v end})
-    TabGame:CreateToggle({Name = "Hitbox", CurrentValue = false, Callback = function(v) Settings.BedWars.Hitbox = v end})
-    TabGame:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) Settings.BedWars.Fly = v end})
-    TabGame:CreateToggle({Name = "Anti Void", CurrentValue = false, Callback = function(v) Settings.BedWars.AntiVoid = v end})
+local function AddButton(tab, name, callback)
+    if tab.CreateButton then -- Rayfield
+        tab:CreateButton({
+            Name = name,
+            Callback = callback
+        })
+    elseif tab.AddButton then -- OwlHub
+        tab:AddButton({
+            Name = name,
+            Callback = callback
+        })
+    end
 end
 
-if GameData.Current == "MM2" then
-    TabGame:CreateSection("MM2")
-    TabGame:CreateToggle({Name = "ESP", CurrentValue = false, Callback = function(v) Settings.MM2.ESP = v end})
-    TabGame:CreateToggle({Name = "Hitbox", CurrentValue = false, Callback = function(v) Settings.MM2.Hitbox = v end})
-    TabGame:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) Settings.MM2.Fly = v end})
-    TabGame:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) Settings.MM2.Noclip = v end})
-    TabGame:CreateToggle({Name = "Speed", CurrentValue = false, Callback = function(v) Settings.MM2.Speed = v end})
-    TabGame:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) Settings.MM2.InfiniteJump = v end})
-    TabGame:CreateToggle({Name = "Auto Win", CurrentValue = false, Callback = function(v) Settings.MM2.AutoWin = v end})
+local function AddSection(tab, name)
+    if tab.CreateSection then -- Rayfield
+        tab:CreateSection(name)
+    elseif tab.AddSection then -- OwlHub
+        tab:AddSection(name)
+    end
 end
 
-if GameData.Current == "Jailbreak" then
-    TabGame:CreateSection("Jailbreak")
-    TabGame:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) Settings.Jailbreak.SilentAim = v end})
-    TabGame:CreateToggle({Name = "Aimlock", CurrentValue = false, Callback = function(v) Settings.Jailbreak.Aimlock = v end})
-    TabGame:CreateToggle({Name = "Triggerbot", CurrentValue = false, Callback = function(v) Settings.Jailbreak.Triggerbot = v end})
-    TabGame:CreateToggle({Name = "ESP", CurrentValue = false, Callback = function(v) Settings.Jailbreak.ESP = v end})
-    TabGame:CreateToggle({Name = "Hitbox", CurrentValue = false, Callback = function(v) Settings.Jailbreak.Hitbox = v end})
-    TabGame:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) Settings.Jailbreak.Fly = v end})
-    TabGame:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(v) Settings.Jailbreak.Noclip = v end})
-    TabGame:CreateToggle({Name = "Speed", CurrentValue = false, Callback = function(v) Settings.Jailbreak.Speed = v end})
-    TabGame:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) Settings.Jailbreak.InfiniteJump = v end})
+-- Combat Tab
+AddSection(Tabs.Combat, "Silent Aim")
+AddToggle(Tabs.Combat, "Enabled", false, function(v) Settings.SilentAim.Enabled = v end)
+AddDropdown(Tabs.Combat, "Hitbox", {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"}, "Head", function(v) Settings.SilentAim.HitPart = v end)
+AddSlider(Tabs.Combat, "FOV", 30, 200, 90, function(v) Settings.SilentAim.FOV = v end)
+AddSlider(Tabs.Combat, "Prediction", 0, 300, 165, function(v) Settings.SilentAim.Prediction = v / 1000 end)
+AddToggle(Tabs.Combat, "Team Check", true, function(v) Settings.SilentAim.TeamCheck = v end)
+AddToggle(Tabs.Combat, "Wall Check", true, function(v) Settings.SilentAim.WallCheck = v end)
+AddToggle(Tabs.Combat, "Show FOV", false, function(v) Settings.SilentAim.ShowFOV = v end)
+
+AddSection(Tabs.Combat, "Aimlock")
+AddToggle(Tabs.Combat, "Enabled", false, function(v) Settings.Aimlock.Enabled = v end)
+AddSlider(Tabs.Combat, "Smoothness", 1, 15, 5, function(v) Settings.Aimlock.Smoothness = v end)
+AddDropdown(Tabs.Combat, "Target", {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"}, "Head", function(v) Settings.Aimlock.TargetPart = v end)
+
+AddSection(Tabs.Combat, "Triggerbot")
+AddToggle(Tabs.Combat, "Enabled", false, function(v) Settings.Triggerbot.Enabled = v end)
+AddSlider(Tabs.Combat, "Delay (ms)", 0, 200, 50, function(v) Settings.Triggerbot.Delay = v / 1000 end)
+
+AddSection(Tabs.Combat, "Hitbox Expander")
+AddToggle(Tabs.Combat, "Enabled", false, function(v)
+    Settings.Hitbox.Enabled = v
+    if v then
+        HitboxSystem.UpdateAll()
+    else
+        for player, _ in pairs(HitboxSystem.Highlights) do
+            HitboxSystem.Remove(player)
+        end
+    end
+end)
+AddSlider(Tabs.Combat, "Size", 1, 5, 2.5, function(v) Settings.Hitbox.Size = v end)
+AddSlider(Tabs.Combat, "Transparency", 0, 1, 0.7, function(v)
+    Settings.Hitbox.Transparency = v
+    if Settings.Hitbox.Enabled then
+        HitboxSystem.UpdateAll()
+    end
+end)
+AddToggle(Tabs.Combat, "Team Check", true, function(v)
+    Settings.Hitbox.TeamCheck = v
+    if Settings.Hitbox.Enabled then
+        HitboxSystem.UpdateAll()
+    end
+end)
+AddColorPicker(Tabs.Combat, "Color", Color3.fromRGB(255,0,0), function(v)
+    Settings.Hitbox.Color = v
+    if Settings.Hitbox.Enabled then
+        HitboxSystem.UpdateAll()
+    end
+end)
+
+AddSection(Tabs.Combat, "Gun Mods")
+AddToggle(Tabs.Combat, "Infinite Ammo", false, function(v) Settings.InfiniteAmmo.Enabled = v end)
+AddToggle(Tabs.Combat, "No Recoil", false, function(v) Settings.NoRecoil.Enabled = v end)
+AddToggle(Tabs.Combat, "No Spread", false, function(v) Settings.NoSpread.Enabled = v end)
+AddToggle(Tabs.Combat, "Rapid Fire", false, function(v) Settings.RapidFire.Enabled = v end)
+AddToggle(Tabs.Combat, "Instant Reload", false, function(v) Settings.InstantReload.Enabled = v end)
+AddToggle(Tabs.Combat, "Damage Multiplier", false, function(v) Settings.DamageMultiplier.Enabled = v end)
+AddSlider(Tabs.Combat, "Damage Amount", 1, 10, 1, function(v) Settings.DamageMultiplier.Value = v end)
+
+-- Player Tab
+AddSection(Tabs.Player, "Fly")
+AddToggle(Tabs.Player, "Enabled", false, function(v)
+    Settings.Fly.Enabled = v
+    if v then
+        FlySystem.Start()
+    else
+        FlySystem.Stop()
+    end
+end)
+AddSlider(Tabs.Player, "Speed", 10, 150, 50, function(v) Settings.Fly.Speed = v end)
+
+AddSection(Tabs.Player, "Movement")
+AddToggle(Tabs.Player, "Noclip", false, function(v) Settings.Noclip.Enabled = v end)
+AddToggle(Tabs.Player, "Speed", false, function(v) Settings.Speed.Enabled = v end)
+AddSlider(Tabs.Player, "Speed Amount", 16, 250, 32, function(v) Settings.Speed.Amount = v end)
+AddToggle(Tabs.Player, "Jump Power", false, function(v) Settings.Jump.Enabled = v end)
+AddSlider(Tabs.Player, "Jump Amount", 50, 250, 75, function(v) Settings.Jump.Amount = v end)
+AddToggle(Tabs.Player, "Infinite Jump", false, function(v) Settings.InfiniteJump.Enabled = v end)
+
+AddSection(Tabs.Player, "Misc")
+AddToggle(Tabs.Player, "Anti-AFK", false, function(v)
+    Settings.AntiAfk.Enabled = v
+    if v then
+        AntiAfkSystem.Start()
+    else
+        AntiAfkSystem.Stop()
+    end
+end)
+AddToggle(Tabs.Player, "No Fall Damage", false, function(v) Settings.NoFallDamage.Enabled = v end)
+
+-- Visuals Tab
+AddSection(Tabs.Visuals, "ESP")
+AddToggle(Tabs.Visuals, "Enabled", false, function(v) Settings.ESP.Enabled = v end)
+AddToggle(Tabs.Visuals, "Box", true, function(v) Settings.ESP.Box = v end)
+AddToggle(Tabs.Visuals, "Box Outline", true, function(v) Settings.ESP.BoxOutline = v end)
+AddColorPicker(Tabs.Visuals, "Box Color", Color3.fromRGB(255,100,100), function(v) Settings.ESP.BoxColor = v end)
+AddToggle(Tabs.Visuals, "Name", true, function(v) Settings.ESP.Name = v end)
+AddToggle(Tabs.Visuals, "Health", true, function(v) Settings.ESP.Health = v end)
+AddToggle(Tabs.Visuals, "Distance", true, function(v) Settings.ESP.Distance = v end)
+AddToggle(Tabs.Visuals, "Weapon", true, function(v) Settings.ESP.Weapon = v end)
+AddToggle(Tabs.Visuals, "Tracer", false, function(v) Settings.ESP.Tracer = v end)
+AddToggle(Tabs.Visuals, "Head Dot", false, function(v) Settings.ESP.HeadDot = v end)
+AddToggle(Tabs.Visuals, "Skeleton", false, function(v) Settings.ESP.Skeleton = v end)
+
+AddSection(Tabs.Visuals, "World")
+AddToggle(Tabs.Visuals, "Full Bright", false, function(v)
+    Settings.World.FullBright.Enabled = v
+    WorldEffects.Update()
+end)
+AddToggle(Tabs.Visuals, "No Fog", false, function(v)
+    Settings.World.NoFog.Enabled = v
+    WorldEffects.Update()
+end)
+AddToggle(Tabs.Visuals, "No Shadows", false, function(v)
+    Settings.World.NoShadows.Enabled = v
+    WorldEffects.Update()
+end)
+
+-- Misc Tab
+AddSection(Tabs.Misc, "Settings")
+AddButton(Tabs.Misc, "Destroy UI", function()
+    if Window:Destroy then
+        Window:Destroy()
+    elseif Window:Delete then
+        Window:Delete()
+    end
+end)
+
+AddButton(Tabs.Misc, "Rejoin Game", function()
+    local TeleportService = game:GetService("TeleportService")
+    TeleportService:Teleport(PlaceId, LocalPlayer)
+end)
+
+AddButton(Tabs.Misc, "Server Hop", function()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    
+    local servers = {}
+    local req = request or http_request or syn and syn.request
+    
+    if req then
+        local cursor = ""
+        local placeInfo = game:GetService("MarketplaceService"):GetProductInfo(PlaceId)
+        local maxPlayers = placeInfo.MaxPlayers or 30
+        
+        repeat
+            local response = req({
+                Url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?limit=100&cursor=%s", PlaceId, cursor),
+                Method = "GET"
+            })
+            
+            local data = HttpService:JSONDecode(response.Body)
+            
+            for _, server in ipairs(data.data) do
+                if server.playing < maxPlayers and server.id ~= game.JobId then
+                    table.insert(servers, server.id)
+                end
+            end
+            
+            cursor = data.nextPageCursor
+        until not cursor or #servers >= 10
+        
+        if #servers > 0 then
+            TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], LocalPlayer)
+        else
+            if Window:Notification then
+                Window:Notification({
+                    Title = "Server Hop",
+                    Content = "No servers available!",
+                    Duration = 5
+                })
+            end
+        end
+    else
+        if Window:Notification then
+            Window:Notification({
+                Title = "Server Hop",
+                Content = "Executor doesn't support HTTP requests!",
+                Duration = 5
+            })
+        end
+    end
+end)
+
+-- Game Specific Tab
+if Game == "Arsenal" then
+    AddSection(Tabs.GameSpecific, "Arsenal Features")
+    AddToggle(Tabs.GameSpecific, "Auto Kill", false, function(v) CurrentGameFeatures.AutoKill.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Auto Kill All", false, function(v) CurrentGameFeatures.AutoKillAll.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Auto Farm", false, function(v) CurrentGameFeatures.AutoFarm.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "No Scope", false, function(v) CurrentGameFeatures.NoScope.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Auto Reload", false, function(v) CurrentGameFeatures.AutoReload.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Infinite Stamina", false, function(v) CurrentGameFeatures.InfiniteStamina.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "No Knockback", false, function(v) CurrentGameFeatures.NoKnockback.Enabled = v end)
+    
+elseif Game == "Rivals" then
+    AddSection(Tabs.GameSpecific, "Rivals Features")
+    AddToggle(Tabs.GameSpecific, "Auto Farm", false, function(v) CurrentGameFeatures.AutoFarm.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Infinite Spin", false, function(v) CurrentGameFeatures.InfiniteSpin.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Auto GK", false, function(v) CurrentGameFeatures.AutoGK.Enabled = v end)
+    AddSlider(Tabs.GameSpecific, "Speed Boost", 1, 5, 3, function(v) 
+        CurrentGameFeatures.SpeedBoost.Multiplier = v
+        CurrentGameFeatures.SpeedBoost.Enabled = true
+    end)
+    AddSlider(Tabs.GameSpecific, "Jump Boost", 1, 5, 3, function(v)
+        CurrentGameFeatures.JumpBoost.Multiplier = v
+        CurrentGameFeatures.JumpBoost.Enabled = true
+    end)
+    
+elseif Game == "DaHood" then
+    AddSection(Tabs.GameSpecific, "Da Hood Features")
+    AddToggle(Tabs.GameSpecific, "Auto Farm", false, function(v) CurrentGameFeatures.AutoFarm.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Auto Collect", false, function(v) CurrentGameFeatures.AutoCollect.Enabled = v end)
+    AddSlider(Tabs.GameSpecific, "Collect Radius", 10, 100, 50, function(v) CurrentGameFeatures.AutoCollect.Radius = v end)
+    AddToggle(Tabs.GameSpecific, "Anti Stomp", false, function(v) CurrentGameFeatures.AntiStomp.Enabled = v end)
+    AddToggle(Tabs.GameSpecific, "Desync", false, function(v) CurrentGameFeatures.Desync.Enabled = v end)
+    
+    if Tabs.GameSpecific.CreateTextBox then -- Rayfield
+        Tabs.GameSpecific:CreateTextBox({
+            Name = "Auto Str Message",
+            PlaceholderText = "Enter message",
+            Callback = function(v) CurrentGameFeatures.AutoStr.Message = v end
+        })
+    elseif Tabs.GameSpecific.AddTextBox then -- OwlHub
+        Tabs.GameSpecific:AddTextBox({
+            Name = "Auto Str Message",
+            Placeholder = "Enter message",
+            Callback = function(v) CurrentGameFeatures.AutoStr.Message = v end
+        })
+    end
+    
+    AddToggle(Tabs.GameSpecific, "Auto Str", false, function(v) CurrentGameFeatures.AutoStr.Enabled = v end)
 end
 
-TabInfo:CreateSection("Account")
-TabInfo:CreateParagraph({
-    Title = "Your Information",
-    Content = string.format("User: %s\nGame: %s\nMobile: %s\nScript: Unnamed XD Hub", 
-        LocalPlayer.Name, 
-        GameData.Current, 
-        UserInputService.TouchEnabled and "Yes" or "No")
-})
-TabInfo:CreateSection("Unnamed XD Hub")
-TabInfo:CreateParagraph({
-    Title = "About",
-    Content = "Owner: @mqp6 / Poc\nVersion: 5.0.0\nDiscord: discord.gg/rmpQfYtnWd\nGames: 9 Supported\nFeatures: 150+"
-})
-TabInfo:CreateButton({Name = "Copy Discord", Callback = function() if setclipboard then setclipboard("https://discord.gg/rmpQfYtnWd"); Rayfield:Notify({Title = "Copied", Content = "Discord link copied", Duration = 2}) end end})
-TabInfo:CreateButton({Name = "Rejoin", Callback = function() TeleportService:Teleport(PlaceId, LocalPlayer) end})
+-- Notification
+if Window:Notification then
+    Window:Notification({
+        Title = "xdhubz",
+        Content = string.format("%s script loaded successfully!", Game),
+        Duration = 5
+    })
+elseif Window:Notify then
+    Window:Notify({
+        Title = "xdhubz",
+        Content = string.format("%s script loaded successfully!", Game),
+        Duration = 5
+    })
+end
 
-Rayfield:Notify({Title = "Unnamed XD Hub", Content = "Loaded | " .. GameData.Current, Duration = 5})
+print(string.format("[xdhubz] %s script loaded successfully! UI: %s", Game, UI.CreateWindow and "OwlHub" or "Rayfield"))
