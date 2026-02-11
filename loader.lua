@@ -6,6 +6,7 @@ local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 local CoreGui = game:GetService("CoreGui")
 local VirtualUser = game:GetService("VirtualUser")
+local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
@@ -28,54 +29,17 @@ local function enc(s)
     return s
 end
 
--- ========== KEYAUTH INIT ==========
-local function initKeyAuth()
-    local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=init&ver=" .. enc(KeyAuthVersion)
-    local success, result = pcall(function() return game:HttpGet(url) end)
-    if not success then return false, "Connection failed" end
-    local success2, data = pcall(function() return HttpService:JSONDecode(result) end)
-    if not success2 or not data then return false, "Invalid response" end
-    if data.success then
-        SessionID = data.sessionid
-        return true, data.sessionid
-    else
-        return false, data.message or "Init failed"
-    end
-end
-
--- ========== KEYAUTH LICENSE CHECK ==========
-local function checkLicense(key)
-    if not key or key == "" then return false, "No key entered" end
-    local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=license&key=" .. enc(key) .. "&ver=" .. enc(KeyAuthVersion) .. "&sessionid=" .. enc(SessionID)
-    local success, result = pcall(function() return game:HttpGet(url) end)
-    if not success then return false, "Connection failed" end
-    local success2, data = pcall(function() return HttpService:JSONDecode(result) end)
-    if not success2 or not data then return false, "Invalid response" end
-    if data.success then
-        UserData = data
-        Authed = true
-        return true, data
-    else
-        return false, data.message or "Invalid key"
-    end
-end
-
--- ========== INIT KEYAUTH ==========
-local initSuccess, initResult = initKeyAuth()
-if not initSuccess then
-    LocalPlayer:Kick("KeyAuth Error: " .. tostring(initResult))
-    return
-end
-
--- ========== CUSTOM KEY UI (MOBILE OPTIMIZED) ==========
+-- ========== CREATE KEY UI IMMEDIATELY ==========
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "XDHub_KeyAuth"
 KeyGui.Parent = CoreGui
 KeyGui.ResetOnSpawn = false
+KeyGui.DisplayOrder = 999
+KeyGui.IgnoreGuiInset = true
 
 local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.new(0, 400, 0, 350)
-KeyFrame.Position = UDim2.new(0.5, -200, 0.5, -175)
+KeyFrame.Size = UDim2.new(0, 400, 0, 380)
+KeyFrame.Position = UDim2.new(0.5, -200, 0.5, -190)
 KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 KeyFrame.BorderSizePixel = 0
 KeyFrame.Active = true
@@ -107,7 +71,7 @@ Subtitle.Font = Enum.Font.Gotham
 Subtitle.Parent = KeyFrame
 
 local KeyBox = Instance.new("TextBox")
-KeyBox.Size = UDim2.new(0.85, 0, 0, 50)
+KeyBox.Size = UDim2.new(0.85, 0, 0, 55)
 KeyBox.Position = UDim2.new(0.5, -170, 0, 130)
 KeyBox.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 KeyBox.BorderSizePixel = 0
@@ -143,17 +107,103 @@ local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 30)
 StatusLabel.Position = UDim2.new(0, 0, 0, 270)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Waiting for input..."
-StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.Text = "🔄 Initializing KeyAuth..."
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
 StatusLabel.TextSize = 15
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.Parent = KeyFrame
 
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -40, 0, 10)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+CloseButton.BorderSizePixel = 0
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 20
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Visible = true
+CloseButton.Parent = KeyFrame
+CloseButton.MouseButton1Click:Connect(function() 
+    KeyGui:Destroy()
+    LocalPlayer:Kick("Authentication cancelled")
+end)
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+local HWIDBox = Instance.new("TextLabel")
+HWIDBox.Size = UDim2.new(0.85, 0, 0, 30)
+HWIDBox.Position = UDim2.new(0.5, -170, 0, 310)
+HWIDBox.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+HWIDBox.BorderSizePixel = 0
+HWIDBox.Text = "HWID: " .. game:GetService("RbxAnalyticsService"):GetClientId()
+HWIDBox.TextColor3 = Color3.fromRGB(150, 150, 150)
+HWIDBox.TextSize = 12
+HWIDBox.Font = Enum.Font.Gotham
+HWIDBox.Parent = KeyFrame
+
+local HWIDCorner = Instance.new("UICorner")
+HWIDCorner.CornerRadius = UDim.new(0, 6)
+HWIDCorner.Parent = HWIDBox
+
 local function setStatus(text, isError)
     StatusLabel.Text = text
-    StatusLabel.TextColor3 = isError and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(100, 255, 100)
+    if isError then
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    elseif text:find("✅") then
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    elseif text:find("🔄") then
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    else
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
 end
 
+-- ========== KEYAUTH INIT ==========
+local function initKeyAuth()
+    local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=init&ver=" .. enc(KeyAuthVersion)
+    local success, result = pcall(function() return game:HttpGet(url) end)
+    if not success then return false, "Connection failed" end
+    local success2, data = pcall(function() return HttpService:JSONDecode(result) end)
+    if not success2 or not data then return false, "Invalid response" end
+    if data.success then
+        SessionID = data.sessionid
+        return true, data.sessionid
+    else
+        return false, data.message or "Init failed"
+    end
+end
+
+-- ========== KEYAUTH LICENSE CHECK ==========
+local function checkLicense(key)
+    if not key or key == "" then return false, "No key entered" end
+    local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=license&key=" .. enc(key) .. "&ver=" .. enc(KeyAuthVersion) .. "&sessionid=" .. enc(SessionID)
+    local success, result = pcall(function() return game:HttpGet(url) end)
+    if not success then return false, "Connection failed" end
+    local success2, data = pcall(function() return HttpService:JSONDecode(result) end)
+    if not success2 or not data then return false, "Invalid response" end
+    if data.success then
+        UserData = data
+        Authed = true
+        return true, data
+    else
+        return false, data.message or "Invalid key"
+    end
+end
+
+-- ========== RUN KEYAUTH INIT IN BACKGROUND ==========
+task.spawn(function()
+    local initSuccess, initResult = initKeyAuth()
+    if initSuccess then
+        setStatus("✅ Connected - Enter your key", false)
+    else
+        setStatus("❌ Init failed: " .. tostring(initResult), true)
+    end
+end)
+
+-- ========== LOGIN BUTTON LOGIC ==========
 LoginButton.MouseButton1Click:Connect(function()
     local key = KeyBox.Text:gsub("%s", "")
     if key == "" then
@@ -161,7 +211,12 @@ LoginButton.MouseButton1Click:Connect(function()
         return
     end
     
-    setStatus("🔍 Verifying with KeyAuth...", false)
+    if SessionID == "" then
+        setStatus("❌ Still initializing...", true)
+        return
+    end
+    
+    setStatus("🔄 Verifying with KeyAuth...", false)
     LoginButton.Text = "..."
     LoginButton.Active = false
     
@@ -186,6 +241,7 @@ KeyBox.FocusLost:Connect(function(enterPressed)
     end
 end)
 
+-- ========== WAIT FOR AUTH ==========
 while not Authed do task.wait(0.1) end
 task.wait(0.5)
 
@@ -203,7 +259,7 @@ _G.SilentAim = {
     AimlockKey = Enum.UserInputType.MouseButton2
 }
 
--- Arsenal-specific silent aim hook - THIS ACTUALLY WORKS [citation:3][citation:8]
+-- Arsenal-specific silent aim hook
 local __namecall
 __namecall = hookmetamethod(game, "__namecall", function(self, ...)
     local args = {...}
@@ -212,8 +268,7 @@ __namecall = hookmetamethod(game, "__namecall", function(self, ...)
     if _G.SilentAim.Enabled and method == "FindPartOnRayWithIgnoreList" and self:IsA("Camera") then
         local hit, pos, normal, material = __namecall(self, ...)
         
-        -- Don't interfere if UI is open
-        if Rayfield and Rayfield.Flags and Rayfield.Flags.UIEnabled == false then
+        if Rayfield and Rayfield.Flags and Rayfield.Flags.UIEnabled == true then
             return __namecall(self, ...)
         end
         
@@ -226,7 +281,6 @@ __namecall = hookmetamethod(game, "__namecall", function(self, ...)
                 if not _G.SilentAim.TeamCheck or player.Team ~= LocalPlayer.Team then
                     local part = player.Character[_G.SilentAim.HitPart]
                     
-                    -- Wall check
                     if _G.SilentAim.WallCheck then
                         local ray = Ray.new(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * 500)
                         local hitPart, hitPos = Workspace:FindPartOnRay(ray, LocalPlayer.Character)
@@ -259,36 +313,6 @@ __namecall = hookmetamethod(game, "__namecall", function(self, ...)
     return __namecall(self, ...)
 end)
 
--- ========== AIMLOCK (MOBILE/CONTROLLER/PC SUPPORT) ==========
-local Aimlock = {
-    Enabled = false,
-    Smoothness = 5,
-    TargetPart = "Head"
-}
-
-local Holding = false
-UserInputService.InputBegan:Connect(function(input)
-    if _G.SilentAim.Aimlock then
-        if input.UserInputType == _G.SilentAim.AimlockKey or input.KeyCode == Enum.KeyCode[_G.SilentAim.AimlockKey] then
-            Holding = true
-        end
-    end
-    if Aimlock.Enabled then
-        if input.UserInputType == Enum.UserInputType.Touch then
-            Holding = true
-        end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == _G.SilentAim.AimlockKey or input.KeyCode == Enum.KeyCode[_G.SilentAim.AimlockKey] then
-        Holding = false
-    end
-    if input.UserInputType == Enum.UserInputType.Touch then
-        Holding = false
-    end
-end)
-
 -- ========== FOV CIRCLE ==========
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = false
@@ -297,6 +321,7 @@ FOVCircle.Color = Color3.fromRGB(255, 100, 100)
 FOVCircle.Thickness = 1.5
 FOVCircle.Filled = false
 FOVCircle.NumSides = 64
+FOVCircle.Transparency = 0.7
 
 RunService.RenderStepped:Connect(function()
     if _G.SilentAim.ShowFOV then
@@ -308,7 +333,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== GUN MODS (ARSENAL SPECIFIC) ==========
+-- ========== GUN MODS ==========
 local GunMods = {
     NoRecoil = false,
     NoSpread = false,
@@ -343,7 +368,7 @@ __index = hookmetamethod(game, "__index", function(self, key)
     return __index(self, key)
 end)
 
--- ========== FLY (FULL MOBILE/PC) ==========
+-- ========== FLY ==========
 local Fly = {Enabled = false, Speed = 50}
 local flyConnection = nil
 local flyBodyGyro, flyBodyVelocity = nil, nil
@@ -376,7 +401,6 @@ local function enableFly()
         local move = Vector3.new(0, 0, 0)
         local cf = Camera.CFrame
         
-        -- Keyboard
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + cf.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - cf.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - cf.RightVector end
@@ -384,7 +408,6 @@ local function enableFly()
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.new(0, 1, 0) end
         
-        -- Mobile touch (dual finger drag to move)
         if UserInputService.TouchEnabled then
             local touches = UserInputService:GetTouchInputs()
             if #touches >= 2 then
@@ -397,20 +420,6 @@ local function enableFly()
                 if diff.X < -30 then move = move - cf.RightVector end
                 if diff.Y > 30 then move = move - cf.LookVector end
                 if diff.Y < -30 then move = move + cf.LookVector end
-            end
-        end
-        
-        -- Controller
-        if UserInputService.GamepadEnabled then
-            for _, gamepad in ipairs(UserInputService:GetConnectedGamepads()) do
-                local state = UserInputService:GetGamepadState(gamepad)
-                local leftX = state[Enum.KeyCode.Thumbstick1] and state[Enum.KeyCode.Thumbstick1].Position.X or 0
-                local leftY = state[Enum.KeyCode.Thumbstick1] and state[Enum.KeyCode.Thumbstick1].Position.Y or 0
-                
-                if leftY > 0.2 then move = move + cf.LookVector * leftY end
-                if leftY < -0.2 then move = move - cf.LookVector * math.abs(leftY) end
-                if leftX > 0.2 then move = move + cf.RightVector * leftX end
-                if leftX < -0.2 then move = move - cf.RightVector * math.abs(leftX) end
             end
         end
         
@@ -437,7 +446,7 @@ local function disableFly()
     end
 end
 
--- ========== HITBOX EXPANDER (BOXES, NOT AVATAR PARTS) ==========
+-- ========== HITBOX EXPANDER (BOXES) ==========
 local Hitbox = {
     Enabled = false,
     Size = 2.5,
@@ -462,11 +471,6 @@ local function createHitbox(player)
     highlight.FillTransparency = Hitbox.Transparency
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
     highlight.OutlineTransparency = 0.5
-    
-    -- THIS CREATES A BOX, NOT DISTORTED AVATAR PARTS
-    -- Using Highlight with custom size creates a box around the character
-    -- No avatar parts are modified
-    
     highlight.Parent = CoreGui
     HitboxHighlights[player] = highlight
 end
@@ -492,7 +496,6 @@ local function updateHitboxes()
                 if not HitboxHighlights[player] then
                     createHitbox(player)
                 else
-                    -- Update properties
                     local h = HitboxHighlights[player]
                     h.FillColor = Hitbox.Color
                     h.FillTransparency = Hitbox.Transparency
@@ -518,7 +521,7 @@ Players.PlayerRemoving:Connect(function(player)
     removeHitbox(player)
 end)
 
--- ========== FULL ESP CUSTOMIZATION ==========
+-- ========== FULL ESP ==========
 local ESP = {
     Enabled = false,
     Box = true,
@@ -541,84 +544,6 @@ local ESP = {
 }
 local ESPObjects = {}
 
-local function createESP(player)
-    if player == LocalPlayer then return end
-    
-    local objects = {}
-    
-    -- Box
-    objects.Box = Drawing.new("Square")
-    objects.Box.Visible = false
-    objects.Box.Color = ESP.BoxColor
-    objects.Box.Thickness = 1.5
-    objects.Box.Filled = false
-    
-    -- Box Outline
-    objects.BoxOutline = Drawing.new("Square")
-    objects.BoxOutline.Visible = false
-    objects.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
-    objects.BoxOutline.Thickness = 3
-    objects.BoxOutline.Filled = false
-    
-    -- Name
-    objects.Name = Drawing.new("Text")
-    objects.Name.Visible = false
-    objects.Name.Color = ESP.NameColor
-    objects.Name.Size = 16
-    objects.Name.Center = true
-    objects.Name.Outline = true
-    
-    -- Health
-    objects.Health = Drawing.new("Text")
-    objects.Health.Visible = false
-    objects.Health.Color = ESP.HealthColor
-    objects.Health.Size = 14
-    objects.Health.Center = true
-    objects.Health.Outline = true
-    
-    -- Distance
-    objects.Distance = Drawing.new("Text")
-    objects.Distance.Visible = false
-    objects.Distance.Color = ESP.DistanceColor
-    objects.Distance.Size = 12
-    objects.Distance.Center = true
-    objects.Distance.Outline = true
-    
-    -- Tracer
-    objects.Tracer = Drawing.new("Line")
-    objects.Tracer.Visible = false
-    objects.Tracer.Color = ESP.TracerColor
-    objects.Tracer.Thickness = 1.5
-    
-    -- Head Dot
-    objects.HeadDot = Drawing.new("Circle")
-    objects.HeadDot.Visible = false
-    objects.HeadDot.Color = ESP.HeadDotColor
-    objects.HeadDot.Radius = 4
-    objects.HeadDot.Filled = true
-    objects.HeadDot.NumSides = 16
-    
-    -- Weapon
-    objects.Weapon = Drawing.new("Text")
-    objects.Weapon.Visible = false
-    objects.Weapon.Color = ESP.WeaponColor
-    objects.Weapon.Size = 12
-    objects.Weapon.Center = true
-    objects.Weapon.Outline = true
-    
-    -- Skeleton joints
-    objects.Skeleton = {}
-    for i = 1, 15 do
-        local line = Drawing.new("Line")
-        line.Visible = false
-        line.Color = ESP.SkeletonColor
-        line.Thickness = 1.5
-        table.insert(objects.Skeleton, line)
-    end
-    
-    ESPObjects[player] = objects
-end
-
 local skeletonJoints = {
     {"Head", "UpperTorso"},
     {"UpperTorso", "LowerTorso"},
@@ -635,6 +560,75 @@ local skeletonJoints = {
     {"RightUpperLeg", "RightLowerLeg"},
     {"RightLowerLeg", "RightFoot"}
 }
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+    
+    local objects = {}
+    
+    objects.Box = Drawing.new("Square")
+    objects.Box.Visible = false
+    objects.Box.Color = ESP.BoxColor
+    objects.Box.Thickness = 1.5
+    objects.Box.Filled = false
+    
+    objects.BoxOutline = Drawing.new("Square")
+    objects.BoxOutline.Visible = false
+    objects.BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+    objects.BoxOutline.Thickness = 3
+    objects.BoxOutline.Filled = false
+    
+    objects.Name = Drawing.new("Text")
+    objects.Name.Visible = false
+    objects.Name.Color = ESP.NameColor
+    objects.Name.Size = 16
+    objects.Name.Center = true
+    objects.Name.Outline = true
+    
+    objects.Health = Drawing.new("Text")
+    objects.Health.Visible = false
+    objects.Health.Color = ESP.HealthColor
+    objects.Health.Size = 14
+    objects.Health.Center = true
+    objects.Health.Outline = true
+    
+    objects.Distance = Drawing.new("Text")
+    objects.Distance.Visible = false
+    objects.Distance.Color = ESP.DistanceColor
+    objects.Distance.Size = 12
+    objects.Distance.Center = true
+    objects.Distance.Outline = true
+    
+    objects.Tracer = Drawing.new("Line")
+    objects.Tracer.Visible = false
+    objects.Tracer.Color = ESP.TracerColor
+    objects.Tracer.Thickness = 1.5
+    
+    objects.HeadDot = Drawing.new("Circle")
+    objects.HeadDot.Visible = false
+    objects.HeadDot.Color = ESP.HeadDotColor
+    objects.HeadDot.Radius = 4
+    objects.HeadDot.Filled = true
+    objects.HeadDot.NumSides = 16
+    
+    objects.Weapon = Drawing.new("Text")
+    objects.Weapon.Visible = false
+    objects.Weapon.Color = ESP.WeaponColor
+    objects.Weapon.Size = 12
+    objects.Weapon.Center = true
+    objects.Weapon.Outline = true
+    
+    objects.Skeleton = {}
+    for i = 1, 15 do
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.Color = ESP.SkeletonColor
+        line.Thickness = 1.5
+        table.insert(objects.Skeleton, line)
+    end
+    
+    ESPObjects[player] = objects
+end
 
 local function updateESP()
     if not ESP.Enabled then
@@ -667,10 +661,8 @@ local function updateESP()
                 local height = math.clamp(60 * scale, 40, 140)
                 local boxPos = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
                 
-                -- Team color
                 local boxColor = (player.Team == LocalPlayer.Team) and Color3.fromRGB(100, 255, 100) or ESP.BoxColor
                 
-                -- Box Outline
                 if ESP.Box and ESP.BoxOutline then
                     objs.BoxOutline.Visible = true
                     objs.BoxOutline.Position = boxPos - Vector2.new(1, 1)
@@ -679,7 +671,6 @@ local function updateESP()
                     objs.BoxOutline.Visible = false
                 end
                 
-                -- Box
                 if ESP.Box then
                     objs.Box.Visible = true
                     objs.Box.Position = boxPos
@@ -689,7 +680,6 @@ local function updateESP()
                     objs.Box.Visible = false
                 end
                 
-                -- Name
                 if ESP.Name then
                     objs.Name.Visible = true
                     objs.Name.Position = Vector2.new(pos.X, boxPos.Y - 20)
@@ -699,7 +689,6 @@ local function updateESP()
                     objs.Name.Visible = false
                 end
                 
-                -- Health
                 if ESP.Health and hum then
                     objs.Health.Visible = true
                     objs.Health.Position = Vector2.new(pos.X, boxPos.Y + height + 5)
@@ -709,7 +698,6 @@ local function updateESP()
                     objs.Health.Visible = false
                 end
                 
-                -- Distance
                 if ESP.Distance then
                     objs.Distance.Visible = true
                     objs.Distance.Position = Vector2.new(pos.X, boxPos.Y + height + 25)
@@ -719,7 +707,6 @@ local function updateESP()
                     objs.Distance.Visible = false
                 end
                 
-                -- Tracer
                 if ESP.Tracer then
                     objs.Tracer.Visible = true
                     objs.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
@@ -729,7 +716,6 @@ local function updateESP()
                     objs.Tracer.Visible = false
                 end
                 
-                -- Head Dot
                 if ESP.HeadDot and head then
                     objs.HeadDot.Visible = true
                     objs.HeadDot.Position = Vector2.new(headPos.X, headPos.Y)
@@ -738,11 +724,9 @@ local function updateESP()
                     objs.HeadDot.Visible = false
                 end
                 
-                -- Weapon
                 if ESP.Weapon then
                     objs.Weapon.Visible = true
                     objs.Weapon.Position = Vector2.new(pos.X, boxPos.Y - 40)
-                    
                     local tool = player.Character:FindFirstChildOfClass("Tool")
                     objs.Weapon.Text = tool and tool.Name or "None"
                     objs.Weapon.Color = ESP.WeaponColor
@@ -750,7 +734,6 @@ local function updateESP()
                     objs.Weapon.Visible = false
                 end
                 
-                -- Skeleton
                 if ESP.Skeleton then
                     for i, joints in ipairs(skeletonJoints) do
                         local part1 = player.Character:FindFirstChild(joints[1])
@@ -776,7 +759,6 @@ local function updateESP()
                     end
                 end
             else
-                -- Off screen - hide everything
                 objs.Box.Visible = false
                 objs.BoxOutline.Visible = false
                 objs.Name.Visible = false
@@ -790,7 +772,6 @@ local function updateESP()
                 end
             end
         else
-            -- No character - hide everything
             objs.Box.Visible = false
             objs.BoxOutline.Visible = false
             objs.Name.Visible = false
@@ -806,7 +787,6 @@ local function updateESP()
     end
 end
 
--- Initialize ESP for all players
 for _, player in pairs(Players:GetPlayers()) do createESP(player) end
 Players.PlayerAdded:Connect(createESP)
 Players.PlayerRemoving:Connect(function(player)
@@ -830,559 +810,74 @@ RunService.RenderStepped:Connect(updateESP)
 local World = {
     FullBright = false,
     NoFog = false,
-    NoShadows = false,
-    SkyColor = nil,
-    AmbientColor = nil
+    NoShadows = false
 }
 
-local lighting = game:GetService("Lighting")
-local originalBrightness = lighting.Brightness
-local originalFogEnd = lighting.FogEnd
-local originalGlobalShadows = lighting.GlobalShadows
-local originalAmbient = lighting.Ambient
-local originalColorShift_Bottom = lighting.ColorShift_Bottom
-local originalColorShift_Top = lighting.ColorShift_Top
+local originalBrightness = Lighting.Brightness
+local originalFogEnd = Lighting.FogEnd
+local originalGlobalShadows = Lighting.GlobalShadows
+local originalAmbient = Lighting.Ambient
+local originalColorShift_Bottom = Lighting.ColorShift_Bottom
+local originalColorShift_Top = Lighting.ColorShift_Top
 
 local function updateWorld()
     if World.FullBright then
-        lighting.Brightness = 2
-        lighting.GlobalShadows = false
-        lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
-        lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+        Lighting.Brightness = 2
+        Lighting.GlobalShadows = false
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
     else
-        lighting.Brightness = originalBrightness
-        lighting.GlobalShadows = originalGlobalShadows
-        lighting.Ambient = originalAmbient
-        lighting.ColorShift_Bottom = originalColorShift_Bottom
-        lighting.ColorShift_Top = originalColorShift_Top
+        Lighting.Brightness = originalBrightness
+        Lighting.GlobalShadows = originalGlobalShadows
+        Lighting.Ambient = originalAmbient
+        Lighting.ColorShift_Bottom = originalColorShift_Bottom
+        Lighting.ColorShift_Top = originalColorShift_Top
     end
     
     if World.NoFog then
-        lighting.FogEnd = 100000
+        Lighting.FogEnd = 100000
     else
-        lighting.FogEnd = originalFogEnd
+        Lighting.FogEnd = originalFogEnd
     end
     
     if World.NoShadows then
-        lighting.GlobalShadows = false
+        Lighting.GlobalShadows = false
     elseif not World.FullBright then
-        lighting.GlobalShadows = originalGlobalShadows
-    end
-    
-    if World.SkyColor then
-        lighting.Ambient = World.SkyColor
-        lighting.ColorShift_Bottom = World.SkyColor
-        lighting.ColorShift_Top = World.SkyColor
+        Lighting.GlobalShadows = originalGlobalShadows
     end
 end
 
--- ========== UNLOCK AFTER DEATH ==========
-local function unlockAfterDeath()
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        task.wait(1)
-        -- Re-apply all enabled features
-        if Fly.Enabled then
-            disableFly()
-            task.wait(0.1)
-            enableFly()
-        end
-        if Hitbox.Enabled then
-            updateHitboxes()
-        end
-        if _G.SilentAim.Enabled then
-            -- Silent aim stays hooked
-        end
-        Rayfield:Notify({Title = "Respawned", Content = "Features re-enabled", Duration = 2})
-    end)
-end
-unlockAfterDeath()
+-- ========== AIMLOCK ==========
+local Aimlock = {
+    Enabled = false,
+    Smoothness = 5,
+    TargetPart = "Head"
+}
 
--- ========== TRIGGERBOT (RESPECTS UI STATE) ==========
-local Triggerbot = {Enabled = false, Delay = 0.05}
-
-task.spawn(function()
-    while task.wait() do
-        if Triggerbot.Enabled and Authed then
-            -- Check if UI is open
-            local uiOpen = false
-            if Rayfield and Rayfield.Flags then
-                uiOpen = Rayfield.Flags.UIEnabled == true
-            end
-            
-            if not uiOpen then
-                local target = Mouse.Target
-                if target then
-                    local char = target.Parent
-                    if char and char:FindFirstChild("Humanoid") then
-                        local player = Players:GetPlayerFromCharacter(char)
-                        if player and player ~= LocalPlayer then
-                            if not _G.SilentAim.TeamCheck or player.Team ~= LocalPlayer.Team then
-                                task.wait(Triggerbot.Delay)
-                                mouse1click()
-                            end
-                        end
-                    end
-                end
-            end
+local Holding = false
+UserInputService.InputBegan:Connect(function(input)
+    if _G.SilentAim.Aimlock then
+        if input.UserInputType == _G.SilentAim.AimlockKey or input.KeyCode == Enum.KeyCode[_G.SilentAim.AimlockKey] then
+            Holding = true
+        end
+    end
+    if Aimlock.Enabled then
+        if input.UserInputType == Enum.UserInputType.Touch then
+            Holding = true
         end
     end
 end)
 
--- ========== LOAD RAYFIELD UI ==========
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
-local Window = Rayfield:CreateWindow({
-    Name = "XD HUB | " .. (UserData and UserData.info and UserData.info.username or LocalPlayer.Name),
-    LoadingTitle = "XD HUB Arsenal",
-    LoadingSubtitle = "by @mqp6 / Poc",
-    ConfigurationSaving = {Enabled = true, FolderName = "XDHub", FileName = "Settings"},
-    Discord = {Enabled = true, Invite = "rmpQfYtnWd", RememberJoins = true},
-    KeySystem = false
-})
-
--- ========== TABS ==========
-local SilentAimTab = Window:CreateTab("Silent Aim", 4483362458)
-local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
-local RageTab = Window:CreateTab("Rage", 4483362458)
-local PlayerTab = Window:CreateTab("Player", 4483362458)
-local HitboxTab = Window:CreateTab("Hitbox", 4483362458)
-local ESPTab = Window:CreateTab("ESP", 4483362458)
-local WorldTab = Window:CreateTab("World", 4483362458)
-local InfoTab = Window:CreateTab("Info", 4483362458)
-
--- ========== SILENT AIM TAB ==========
-SilentAimTab:CreateSection("Silent Aim (Undetectable)")
-SilentAimTab:CreateToggle({
-    Name = "Enable Silent Aim",
-    CurrentValue = true,
-    Callback = function(v) _G.SilentAim.Enabled = v end
-})
-SilentAimTab:CreateDropdown({
-    Name = "Target Part",
-    Options = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"},
-    CurrentOption = {"Head"},
-    Callback = function(v) _G.SilentAim.HitPart = v[1] end
-})
-SilentAimTab:CreateSlider({
-    Name = "FOV",
-    Range = {30, 200},
-    Increment = 5,
-    CurrentValue = 90,
-    Callback = function(v) _G.SilentAim.FOV = v end
-})
-SilentAimTab:CreateSlider({
-    Name = "Prediction",
-    Range = {0, 300},
-    Increment = 5,
-    CurrentValue = 165,
-    Callback = function(v) _G.SilentAim.Prediction = v / 1000 end
-})
-SilentAimTab:CreateToggle({
-    Name = "Team Check",
-    CurrentValue = true,
-    Callback = function(v) _G.SilentAim.TeamCheck = v end
-})
-SilentAimTab:CreateToggle({
-    Name = "Wall Check",
-    CurrentValue = true,
-    Callback = function(v) _G.SilentAim.WallCheck = v end
-})
-SilentAimTab:CreateToggle({
-    Name = "Show FOV Circle",
-    CurrentValue = false,
-    Callback = function(v) _G.SilentAim.ShowFOV = v end
-})
-
--- ========== AIMBOT TAB ==========
-AimbotTab:CreateSection("Aimlock (PC/Mobile/Controller)")
-AimbotTab:CreateToggle({
-    Name = "Enable Aimlock",
-    CurrentValue = false,
-    Callback = function(v) 
-        _G.SilentAim.Aimlock = v
-        Aimlock.Enabled = v
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == _G.SilentAim.AimlockKey or input.KeyCode == Enum.KeyCode[_G.SilentAim.AimlockKey] then
+        Holding = false
     end
-})
-AimbotTab:CreateDropdown({
-    Name = "Aimlock Key",
-    Options = {"MouseButton2", "E", "Q", "Shift", "Control", "Alt", "Touch"},
-    CurrentOption = {"MouseButton2"},
-    Callback = function(v)
-        if v[1] == "Touch" then
-            _G.SilentAim.AimlockKey = Enum.UserInputType.Touch
-        else
-            _G.SilentAim.AimlockKey = Enum.KeyCode[v[1]]
-        end
+    if input.UserInputType == Enum.UserInputType.Touch then
+        Holding = false
     end
-})
-AimbotTab:CreateSlider({
-    Name = "Smoothness",
-    Range = {1, 15},
-    Increment = 1,
-    CurrentValue = 5,
-    Callback = function(v) Aimlock.Smoothness = v end
-})
-AimbotTab:CreateDropdown({
-    Name = "Target Part",
-    Options = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"},
-    CurrentOption = {"Head"},
-    Callback = function(v) Aimlock.TargetPart = v[1] end
-})
+end)
 
--- ========== RAGE TAB ==========
-RageTab:CreateSection("Gun Mods")
-RageTab:CreateToggle({
-    Name = "No Recoil",
-    CurrentValue = false,
-    Callback = function(v) GunMods.NoRecoil = v end
-})
-RageTab:CreateToggle({
-    Name = "No Spread",
-    CurrentValue = false,
-    Callback = function(v) GunMods.NoSpread = v end
-})
-RageTab:CreateToggle({
-    Name = "Rapid Fire",
-    CurrentValue = false,
-    Callback = function(v) GunMods.RapidFire = v end
-})
-RageTab:CreateToggle({
-    Name = "Infinite Ammo",
-    CurrentValue = false,
-    Callback = function(v) GunMods.InfiniteAmmo = v end
-})
-RageTab:CreateToggle({
-    Name = "Instant Reload",
-    CurrentValue = false,
-    Callback = function(v) GunMods.InstantReload = v end
-})
-RageTab:CreateToggle({
-    Name = "Auto Fire",
-    CurrentValue = false,
-    Callback = function(v) GunMods.AutoFire = v end
-})
-RageTab:CreateSlider({
-    Name = "Damage Multiplier",
-    Range = {1, 10},
-    Increment = 1,
-    CurrentValue = 1,
-    Callback = function(v) GunMods.DamageMultiplier = v end
-})
-
-RageTab:CreateSection("Triggerbot")
-RageTab:CreateToggle({
-    Name = "Enable Triggerbot",
-    CurrentValue = false,
-    Callback = function(v) Triggerbot.Enabled = v end
-})
-RageTab:CreateSlider({
-    Name = "Trigger Delay (MS)",
-    Range = {0, 200},
-    Increment = 10,
-    CurrentValue = 50,
-    Callback = function(v) Triggerbot.Delay = v / 1000 end
-})
-
-RageTab:CreateSection("Nuke")
-RageTab:CreateButton({
-    Name = "Kill All Players",
-    Callback = function()
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") then
-                p.Character.Humanoid.Health = 0
-            end
-        end
-        Rayfield:Notify({Title = "Rage", Content = "Killed all players", Duration = 2})
-    end
-})
-
--- ========== PLAYER TAB ==========
-PlayerTab:CreateSection("Movement")
-PlayerTab:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16, 250},
-    Increment = 1,
-    CurrentValue = 16,
-    Callback = function(v)
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.WalkSpeed = v
-            end
-        end)
-    end
-})
-PlayerTab:CreateSlider({
-    Name = "JumpPower",
-    Range = {50, 250},
-    Increment = 1,
-    CurrentValue = 50,
-    Callback = function(v)
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.JumpPower = v
-            end
-        end)
-    end
-})
-PlayerTab:CreateToggle({
-    Name = "Noclip",
-    CurrentValue = false,
-    Callback = function(v)
-        if v then
-            RunService.Stepped:Connect(function()
-                if LocalPlayer.Character then
-                    for _, p in pairs(LocalPlayer.Character:GetDescendants()) do
-                        if p:IsA("BasePart") then p.CanCollide = false end
-                    end
-                end
-            end)
-        end
-    end
-})
-PlayerTab:CreateToggle({
-    Name = "Fly",
-    CurrentValue = false,
-    Callback = function(v)
-        Fly.Enabled = v
-        if v then enableFly() else disableFly() end
-    end
-})
-PlayerTab:CreateSlider({
-    Name = "Fly Speed",
-    Range = {10, 150},
-    Increment = 5,
-    CurrentValue = 50,
-    Callback = function(v) Fly.Speed = v end
-})
-PlayerTab:CreateToggle({
-    Name = "Infinite Jump",
-    CurrentValue = false,
-    Callback = function(v)
-        if v then
-            LocalPlayer.Character.Humanoid.JumpPower = 100
-        end
-    end
-})
-
--- ========== HITBOX TAB (BOX STYLE) ==========
-HitboxTab:CreateSection("Hitbox Expander (Box)")
-HitboxTab:CreateToggle({
-    Name = "Enable Hitbox Boxes",
-    CurrentValue = false,
-    Callback = function(v)
-        Hitbox.Enabled = v
-        if v then
-            updateHitboxes()
-        else
-            for player, _ in pairs(HitboxHighlights) do
-                removeHitbox(player)
-            end
-        end
-    end
-})
-HitboxTab:CreateSlider({
-    Name = "Box Size",
-    Range = {1, 5},
-    Increment = 0.1,
-    CurrentValue = 2.5,
-    Callback = function(v)
-        Hitbox.Size = v
-        -- Size is visual only, not modifying avatar parts
-        Rayfield:Notify({Title = "Hitbox", Content = "Size updated", Duration = 1})
-    end
-})
-HitboxTab:CreateSlider({
-    Name = "Transparency",
-    Range = {0, 1},
-    Increment = 0.1,
-    CurrentValue = 0.7,
-    Callback = function(v)
-        Hitbox.Transparency = v
-        if Hitbox.Enabled then
-            updateHitboxes()
-        end
-    end
-})
-HitboxTab:CreateToggle({
-    Name = "Team Check",
-    CurrentValue = true,
-    Callback = function(v)
-        Hitbox.TeamCheck = v
-        if Hitbox.Enabled then
-            updateHitboxes()
-        end
-    end
-})
-HitboxTab:CreateColorPicker({
-    Name = "Box Color",
-    CurrentValue = Color3.fromRGB(255, 0, 0),
-    Callback = function(v)
-        Hitbox.Color = v
-        if Hitbox.Enabled then
-            updateHitboxes()
-        end
-    end
-})
-
--- ========== ESP TAB ==========
-ESPTab:CreateSection("Master Toggle")
-ESPTab:CreateToggle({
-    Name = "Enable ESP",
-    CurrentValue = false,
-    Callback = function(v) ESP.Enabled = v end
-})
-
-ESPTab:CreateSection("Box ESP")
-ESPTab:CreateToggle({
-    Name = "Show Box",
-    CurrentValue = true,
-    Callback = function(v) ESP.Box = v end
-})
-ESPTab:CreateToggle({
-    Name = "Box Outline",
-    CurrentValue = true,
-    Callback = function(v) ESP.BoxOutline = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Box Color",
-    CurrentValue = Color3.fromRGB(255, 100, 100),
-    Callback = function(v) ESP.BoxColor = v end
-})
-
-ESPTab:CreateSection("Info ESP")
-ESPTab:CreateToggle({
-    Name = "Show Name",
-    CurrentValue = true,
-    Callback = function(v) ESP.Name = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Name Color",
-    CurrentValue = Color3.fromRGB(255, 255, 255),
-    Callback = function(v) ESP.NameColor = v end
-})
-ESPTab:CreateToggle({
-    Name = "Show Health",
-    CurrentValue = true,
-    Callback = function(v) ESP.Health = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Health Color",
-    CurrentValue = Color3.fromRGB(100, 255, 100),
-    Callback = function(v) ESP.HealthColor = v end
-})
-ESPTab:CreateToggle({
-    Name = "Show Distance",
-    CurrentValue = true,
-    Callback = function(v) ESP.Distance = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Distance Color",
-    CurrentValue = Color3.fromRGB(200, 200, 200),
-    Callback = function(v) ESP.DistanceColor = v end
-})
-ESPTab:CreateToggle({
-    Name = "Show Weapon",
-    CurrentValue = true,
-    Callback = function(v) ESP.Weapon = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Weapon Color",
-    CurrentValue = Color3.fromRGB(255, 255, 0),
-    Callback = function(v) ESP.WeaponColor = v end
-})
-
-ESPTab:CreateSection("Visual ESP")
-ESPTab:CreateToggle({
-    Name = "Show Tracer",
-    CurrentValue = false,
-    Callback = function(v) ESP.Tracer = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Tracer Color",
-    CurrentValue = Color3.fromRGB(255, 255, 255),
-    Callback = function(v) ESP.TracerColor = v end
-})
-ESPTab:CreateToggle({
-    Name = "Show Head Dot",
-    CurrentValue = false,
-    Callback = function(v) ESP.HeadDot = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Head Dot Color",
-    CurrentValue = Color3.fromRGB(255, 0, 0),
-    Callback = function(v) ESP.HeadDotColor = v end
-})
-ESPTab:CreateToggle({
-    Name = "Show Skeleton",
-    CurrentValue = false,
-    Callback = function(v) ESP.Skeleton = v end
-})
-ESPTab:CreateColorPicker({
-    Name = "Skeleton Color",
-    CurrentValue = Color3.fromRGB(255, 255, 255),
-    Callback = function(v) ESP.SkeletonColor = v end
-})
-
--- ========== WORLD TAB ==========
-WorldTab:CreateSection("Lighting")
-WorldTab:CreateToggle({
-    Name = "Full Bright",
-    CurrentValue = false,
-    Callback = function(v) World.FullBright = v updateWorld() end
-})
-WorldTab:CreateToggle({
-    Name = "No Fog",
-    CurrentValue = false,
-    Callback = function(v) World.NoFog = v updateWorld() end
-})
-WorldTab:CreateToggle({
-    Name = "No Shadows",
-    CurrentValue = false,
-    Callback = function(v) World.NoShadows = v updateWorld() end
-})
-
--- ========== INFO TAB ==========
-InfoTab:CreateSection("Account")
-InfoTab:CreateParagraph({
-    Title = "Your Information",
-    Content = string.format(
-        "Username: %s\nEmail: %s\nExpires: %s\nPlan: %s",
-        (UserData and UserData.info and UserData.info.username) or LocalPlayer.Name,
-        (UserData and UserData.info and UserData.info.email) or "N/A",
-        (UserData and UserData.info and UserData.info.expires) or "Lifetime",
-        (UserData and UserData.info and UserData.info.subscription) or "Premium"
-    )
-})
-
-InfoTab:CreateSection("XD HUB")
-InfoTab:CreateParagraph({
-    Title = "About",
-    Content = string.format(
-        "Owner: @mqp6 / Poc\nCreated: 2/10/2026\nDiscord: discord.gg/rmpQfYtnWd\nVersion: 3.0\nMobile: %s\nController: %s",
-        UserInputService.TouchEnabled and "Yes" or "No",
-        UserInputService.GamepadEnabled and "Yes" or "No"
-    )
-})
-
-InfoTab:CreateButton({
-    Name = "Copy Discord",
-    Callback = function()
-        if setclipboard then
-            setclipboard("https://discord.gg/rmpQfYtnWd")
-            Rayfield:Notify({Title = "Copied", Content = "Discord link copied", Duration = 2})
-        end
-    end
-})
-
-InfoTab:CreateButton({
-    Name = "Rejoin Game",
-    Callback = function()
-        game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
-    end
-})
-
--- ========== AIMLOCK LOOP ==========
 RunService.RenderStepped:Connect(function()
     if Aimlock.Enabled and Holding then
         if Rayfield and Rayfield.Flags and Rayfield.Flags.UIEnabled == true then return end
@@ -1415,6 +910,186 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+
+-- ========== TRIGGERBOT ==========
+local Triggerbot = {Enabled = false, Delay = 0.05}
+
+task.spawn(function()
+    while task.wait() do
+        if Triggerbot.Enabled and Authed then
+            local uiOpen = false
+            if Rayfield and Rayfield.Flags then
+                uiOpen = Rayfield.Flags.UIEnabled == true
+            end
+            
+            if not uiOpen then
+                local target = Mouse.Target
+                if target then
+                    local char = target.Parent
+                    if char and char:FindFirstChild("Humanoid") then
+                        local player = Players:GetPlayerFromCharacter(char)
+                        if player and player ~= LocalPlayer then
+                            if not _G.SilentAim.TeamCheck or player.Team ~= LocalPlayer.Team then
+                                task.wait(Triggerbot.Delay)
+                                mouse1click()
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ========== UNLOCK AFTER DEATH ==========
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    if Fly.Enabled then
+        disableFly()
+        task.wait(0.1)
+        enableFly()
+    end
+    if Hitbox.Enabled then
+        updateHitboxes()
+    end
+end)
+
+-- ========== LOAD RAYFIELD UI ==========
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "XD HUB | " .. (UserData and UserData.info and UserData.info.username or LocalPlayer.Name),
+    LoadingTitle = "XD HUB Arsenal",
+    LoadingSubtitle = "by @mqp6 / Poc",
+    ConfigurationSaving = {Enabled = true, FolderName = "XDHub", FileName = "Settings"},
+    Discord = {Enabled = true, Invite = "rmpQfYtnWd", RememberJoins = true},
+    KeySystem = false
+})
+
+-- ========== TABS ==========
+local SilentAimTab = Window:CreateTab("Silent Aim", 4483362458)
+local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
+local RageTab = Window:CreateTab("Rage", 4483362458)
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+local HitboxTab = Window:CreateTab("Hitbox", 4483362458)
+local ESPTab = Window:CreateTab("ESP", 4483362458)
+local WorldTab = Window:CreateTab("World", 4483362458)
+local InfoTab = Window:CreateTab("Info", 4483362458)
+
+-- ========== SILENT AIM TAB ==========
+SilentAimTab:CreateSection("Silent Aim")
+SilentAimTab:CreateToggle({Name = "Enable Silent Aim", CurrentValue = true, Callback = function(v) _G.SilentAim.Enabled = v end})
+SilentAimTab:CreateDropdown({Name = "Target Part", Options = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"}, CurrentOption = {"Head"}, Callback = function(v) _G.SilentAim.HitPart = v[1] end})
+SilentAimTab:CreateSlider({Name = "FOV", Range = {30, 200}, Increment = 5, CurrentValue = 90, Callback = function(v) _G.SilentAim.FOV = v end})
+SilentAimTab:CreateSlider({Name = "Prediction", Range = {0, 300}, Increment = 5, CurrentValue = 165, Callback = function(v) _G.SilentAim.Prediction = v / 1000 end})
+SilentAimTab:CreateToggle({Name = "Team Check", CurrentValue = true, Callback = function(v) _G.SilentAim.TeamCheck = v end})
+SilentAimTab:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = function(v) _G.SilentAim.WallCheck = v end})
+SilentAimTab:CreateToggle({Name = "Show FOV Circle", CurrentValue = false, Callback = function(v) _G.SilentAim.ShowFOV = v end})
+
+-- ========== AIMBOT TAB ==========
+AimbotTab:CreateSection("Aimlock")
+AimbotTab:CreateToggle({Name = "Enable Aimlock", CurrentValue = false, Callback = function(v) _G.SilentAim.Aimlock = v Aimlock.Enabled = v end})
+AimbotTab:CreateDropdown({Name = "Aimlock Key", Options = {"MouseButton2", "E", "Q", "Shift", "Control", "Alt", "Touch"}, CurrentOption = {"MouseButton2"}, Callback = function(v)
+    if v[1] == "Touch" then _G.SilentAim.AimlockKey = Enum.UserInputType.Touch else _G.SilentAim.AimlockKey = Enum.KeyCode[v[1]] end end})
+AimbotTab:CreateSlider({Name = "Smoothness", Range = {1, 15}, Increment = 1, CurrentValue = 5, Callback = function(v) Aimlock.Smoothness = v end})
+AimbotTab:CreateDropdown({Name = "Target Part", Options = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"}, CurrentOption = {"Head"}, Callback = function(v) Aimlock.TargetPart = v[1] end})
+
+-- ========== RAGE TAB ==========
+RageTab:CreateSection("Gun Mods")
+RageTab:CreateToggle({Name = "No Recoil", CurrentValue = false, Callback = function(v) GunMods.NoRecoil = v end})
+RageTab:CreateToggle({Name = "No Spread", CurrentValue = false, Callback = function(v) GunMods.NoSpread = v end})
+RageTab:CreateToggle({Name = "Rapid Fire", CurrentValue = false, Callback = function(v) GunMods.RapidFire = v end})
+RageTab:CreateToggle({Name = "Infinite Ammo", CurrentValue = false, Callback = function(v) GunMods.InfiniteAmmo = v end})
+RageTab:CreateToggle({Name = "Instant Reload", CurrentValue = false, Callback = function(v) GunMods.InstantReload = v end})
+RageTab:CreateSlider({Name = "Damage Multiplier", Range = {1, 10}, Increment = 1, CurrentValue = 1, Callback = function(v) GunMods.DamageMultiplier = v end})
+
+RageTab:CreateSection("Triggerbot")
+RageTab:CreateToggle({Name = "Enable Triggerbot", CurrentValue = false, Callback = function(v) Triggerbot.Enabled = v end})
+RageTab:CreateSlider({Name = "Trigger Delay (MS)", Range = {0, 200}, Increment = 10, CurrentValue = 50, Callback = function(v) Triggerbot.Delay = v / 1000 end})
+
+RageTab:CreateSection("Nuke")
+RageTab:CreateButton({Name = "Kill All Players", Callback = function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") then
+            p.Character.Humanoid.Health = 0
+        end
+    end
+    Rayfield:Notify({Title = "Rage", Content = "Killed all players", Duration = 2})
+end})
+
+-- ========== PLAYER TAB ==========
+PlayerTab:CreateSection("Movement")
+PlayerTab:CreateSlider({Name = "WalkSpeed", Range = {16, 250}, Increment = 1, CurrentValue = 16,
+    Callback = function(v) pcall(function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = v end end) end})
+PlayerTab:CreateSlider({Name = "JumpPower", Range = {50, 250}, Increment = 1, CurrentValue = 50,
+    Callback = function(v) pcall(function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end end) end})
+PlayerTab:CreateToggle({Name = "Noclip", CurrentValue = false,
+    Callback = function(v) if v then RunService.Stepped:Connect(function() if LocalPlayer.Character then for _, p in pairs(LocalPlayer.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end end) end end})
+PlayerTab:CreateToggle({Name = "Fly", CurrentValue = false, Callback = function(v) Fly.Enabled = v if v then enableFly() else disableFly() end end})
+PlayerTab:CreateSlider({Name = "Fly Speed", Range = {10, 150}, Increment = 5, CurrentValue = 50, Callback = function(v) Fly.Speed = v end})
+
+-- ========== HITBOX TAB ==========
+HitboxTab:CreateSection("Hitbox Expander")
+HitboxTab:CreateToggle({Name = "Enable Hitbox Boxes", CurrentValue = false, Callback = function(v) Hitbox.Enabled = v if v then updateHitboxes() else for player,_ in pairs(HitboxHighlights) do removeHitbox(player) end end end})
+HitboxTab:CreateSlider({Name = "Box Size", Range = {1, 5}, Increment = 0.1, CurrentValue = 2.5, Callback = function(v) Hitbox.Size = v end})
+HitboxTab:CreateSlider({Name = "Transparency", Range = {0, 1}, Increment = 0.1, CurrentValue = 0.7, Callback = function(v) Hitbox.Transparency = v if Hitbox.Enabled then updateHitboxes() end end})
+HitboxTab:CreateToggle({Name = "Team Check", CurrentValue = true, Callback = function(v) Hitbox.TeamCheck = v if Hitbox.Enabled then updateHitboxes() end end})
+HitboxTab:CreateColorPicker({Name = "Box Color", CurrentValue = Color3.fromRGB(255, 0, 0), Callback = function(v) Hitbox.Color = v if Hitbox.Enabled then updateHitboxes() end end})
+
+-- ========== ESP TAB ==========
+ESPTab:CreateSection("Master")
+ESPTab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Callback = function(v) ESP.Enabled = v end})
+
+ESPTab:CreateSection("Box")
+ESPTab:CreateToggle({Name = "Show Box", CurrentValue = true, Callback = function(v) ESP.Box = v end})
+ESPTab:CreateToggle({Name = "Box Outline", CurrentValue = true, Callback = function(v) ESP.BoxOutline = v end})
+ESPTab:CreateColorPicker({Name = "Box Color", CurrentValue = Color3.fromRGB(255, 100, 100), Callback = function(v) ESP.BoxColor = v end})
+
+ESPTab:CreateSection("Info")
+ESPTab:CreateToggle({Name = "Show Name", CurrentValue = true, Callback = function(v) ESP.Name = v end})
+ESPTab:CreateColorPicker({Name = "Name Color", CurrentValue = Color3.fromRGB(255, 255, 255), Callback = function(v) ESP.NameColor = v end})
+ESPTab:CreateToggle({Name = "Show Health", CurrentValue = true, Callback = function(v) ESP.Health = v end})
+ESPTab:CreateColorPicker({Name = "Health Color", CurrentValue = Color3.fromRGB(100, 255, 100), Callback = function(v) ESP.HealthColor = v end})
+ESPTab:CreateToggle({Name = "Show Distance", CurrentValue = true, Callback = function(v) ESP.Distance = v end})
+ESPTab:CreateColorPicker({Name = "Distance Color", CurrentValue = Color3.fromRGB(200, 200, 200), Callback = function(v) ESP.DistanceColor = v end})
+ESPTab:CreateToggle({Name = "Show Weapon", CurrentValue = true, Callback = function(v) ESP.Weapon = v end})
+ESPTab:CreateColorPicker({Name = "Weapon Color", CurrentValue = Color3.fromRGB(255, 255, 0), Callback = function(v) ESP.WeaponColor = v end})
+
+ESPTab:CreateSection("Visuals")
+ESPTab:CreateToggle({Name = "Show Tracer", CurrentValue = false, Callback = function(v) ESP.Tracer = v end})
+ESPTab:CreateColorPicker({Name = "Tracer Color", CurrentValue = Color3.fromRGB(255, 255, 255), Callback = function(v) ESP.TracerColor = v end})
+ESPTab:CreateToggle({Name = "Show Head Dot", CurrentValue = false, Callback = function(v) ESP.HeadDot = v end})
+ESPTab:CreateColorPicker({Name = "Head Dot Color", CurrentValue = Color3.fromRGB(255, 0, 0), Callback = function(v) ESP.HeadDotColor = v end})
+ESPTab:CreateToggle({Name = "Show Skeleton", CurrentValue = false, Callback = function(v) ESP.Skeleton = v end})
+ESPTab:CreateColorPicker({Name = "Skeleton Color", CurrentValue = Color3.fromRGB(255, 255, 255), Callback = function(v) ESP.SkeletonColor = v end})
+
+-- ========== WORLD TAB ==========
+WorldTab:CreateSection("Lighting")
+WorldTab:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) World.FullBright = v updateWorld() end})
+WorldTab:CreateToggle({Name = "No Fog", CurrentValue = false, Callback = function(v) World.NoFog = v updateWorld() end})
+WorldTab:CreateToggle({Name = "No Shadows", CurrentValue = false, Callback = function(v) World.NoShadows = v updateWorld() end})
+
+-- ========== INFO TAB ==========
+InfoTab:CreateSection("Account")
+InfoTab:CreateParagraph({
+    Title = "Your Information",
+    Content = string.format("Username: %s\nEmail: %s\nExpires: %s\nPlan: %s",
+        (UserData and UserData.info and UserData.info.username) or LocalPlayer.Name,
+        (UserData and UserData.info and UserData.info.email) or "N/A",
+        (UserData and UserData.info and UserData.info.expires) or "Lifetime",
+        (UserData and UserData.info and UserData.info.subscription) or "Premium")
+})
+
+InfoTab:CreateSection("XD HUB")
+InfoTab:CreateParagraph({
+    Title = "About",
+    Content = string.format("Owner: @mqp6 / Poc\nCreated: 2/10/2026\nDiscord: discord.gg/rmpQfYtnWd\nVersion: 3.0\nMobile: %s\nController: %s",
+        UserInputService.TouchEnabled and "Yes" or "No",
+        UserInputService.GamepadEnabled and "Yes" or "No")
+})
+
+InfoTab:CreateButton({Name = "Copy Discord", Callback = function() if setclipboard then setclipboard("https://discord.gg/rmpQfYtnWd") Rayfield:Notify({Title = "Copied", Content = "Discord link copied", Duration = 2}) end end})
+InfoTab:CreateButton({Name = "Rejoin Game", Callback = function() game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer) end})
 
 -- ========== FINAL ==========
 Rayfield:Notify({
