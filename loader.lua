@@ -4,21 +4,21 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local CoreGui = game:GetService("CoreGui")
 
 -- ========== KEYAUTH CONFIG ==========
-local KeyAuthApp = "XD HUB"
-local KeyAuthOwner = "eDjLQhPvrs"
+-- DOUBLE CHECK THESE ON YOUR DASHBOARD
+local KeyAuthApp = "XD HUB"  -- Must match EXACTLY
+local KeyAuthOwner = "eDjLQhPvrs"  -- Your owner ID
 local KeyAuthVersion = "1.0"
 local SessionID = ""
 local UserData = nil
 local Authed = false
 
--- ========== LOAD RAYFIELD ==========
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
--- ========== KEYAUTH FUNCTIONS ==========
+-- ========== URL ENCODE ==========
 local function enc(s)
     s = tostring(s)
     s = s:gsub(" ", "%%20")
@@ -28,124 +28,208 @@ local function enc(s)
     return s
 end
 
-local function init()
+-- ========== KEYAUTH INIT ==========
+local function initKeyAuth()
     local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=init&ver=" .. enc(KeyAuthVersion)
-    local ok, res = pcall(function() return game:HttpGet(url) end)
-    if not ok then return false, "Connection failed" end
-    local ok2, dat = pcall(function() return HttpService:JSONDecode(res) end)
-    if not ok2 or not dat then return false, "Bad response" end
-    if dat.success then
-        SessionID = dat.sessionid
-        return true
+    local success, result = pcall(function() return game:HttpGet(url) end)
+    if not success then return false, "Connection failed" end
+    
+    local success2, data = pcall(function() return HttpService:JSONDecode(result) end)
+    if not success2 or not data then return false, "Invalid response" end
+    
+    if data.success then
+        SessionID = data.sessionid
+        return true, data.sessionid
     else
-        return false, dat.message or "Init failed"
+        return false, data.message or "Init failed"
     end
 end
 
-local function checkLicense(k)
-    if not k or k:gsub("%s", "") == "" then return false, "No key entered" end
-    local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=license&key=" .. enc(k) .. "&ver=" .. enc(KeyAuthVersion) .. "&sessionid=" .. enc(SessionID)
-    local ok, res = pcall(function() return game:HttpGet(url) end)
-    if not ok then return false, "Connection failed" end
-    local ok2, dat = pcall(function() return HttpService:JSONDecode(res) end)
-    if not ok2 or not dat then return false, "Bad response" end
-    if dat.success then
-        UserData = dat
+-- ========== KEYAUTH LICENSE CHECK ==========
+local function checkLicense(key)
+    if not key or key == "" then return false, "No key entered" end
+    
+    local url = "https://keyauth.win/api/1.1/?name=" .. enc(KeyAuthApp) .. "&ownerid=" .. enc(KeyAuthOwner) .. "&type=license&key=" .. enc(key) .. "&ver=" .. enc(KeyAuthVersion) .. "&sessionid=" .. enc(SessionID)
+    local success, result = pcall(function() return game:HttpGet(url) end)
+    if not success then return false, "Connection failed" end
+    
+    local success2, data = pcall(function() return HttpService:JSONDecode(result) end)
+    if not success2 or not data then return false, "Invalid response" end
+    
+    if data.success then
+        UserData = data
         Authed = true
-        return true, dat
+        return true, data
     else
-        return false, dat.message or "Invalid key"
+        return false, data.message or "Invalid key"
     end
 end
 
--- ========== INITIALIZE KEYAUTH ==========
-local initok, initmsg = init()
-if not initok then
-    LocalPlayer:Kick("Auth Error: " .. initmsg)
+-- ========== INITIALIZE KEYAUTH FIRST ==========
+local initSuccess, initResult = initKeyAuth()
+if not initSuccess then
+    LocalPlayer:Kick("KeyAuth Error: " .. tostring(initResult))
     return
 end
 
--- ========== CREATE WINDOW WITH KEY SYSTEM ==========
-local Window = Rayfield:CreateWindow({
-    Name = "XD HUB",
-    LoadingTitle = "XD HUB",
-    LoadingSubtitle = "by @mqp6 / Poc",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "XDHub",
-        FileName = "Settings"
-    },
-    Discord = {
-        Enabled = true,
-        Invite = "rmpQfYtnWd",
-        RememberJoins = true
-    },
-    KeySystem = true,
-    KeySettings = {
-        Title = "XD HUB Verification",
-        Subtitle = "Enter License Key",
-        Note = "🔐 Keys are validated through Verified Services & Keyauth.cc",
-        FileName = "XDHub_License",
-        SaveKey = true,
-        GrabKeyFromSite = false,
-        Key = {"dummy"}
-    }
-})
+print("✅ KeyAuth Init Success - SessionID: " .. SessionID)
 
--- ========== OVERRIDE KEY CHECK ==========
-task.spawn(function()
-    task.wait(1)
-    local ks = nil
-    if Rayfield and Rayfield.KeySystem then ks = Rayfield.KeySystem end
-    if not ks then
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" and rawget(v, "CheckKey") and type(v.CheckKey) == "function" then
-                ks = v
-                break
-            end
-        end
+-- ========== LOAD RAYFIELD ==========
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- ========== CUSTOM KEY UI (SIMPLE, WORKS 100%) ==========
+local KeyGui = Instance.new("ScreenGui")
+KeyGui.Name = "XDHub_KeyAuth"
+KeyGui.Parent = CoreGui
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.new(0, 400, 0, 300)
+KeyFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+KeyFrame.BorderSizePixel = 0
+KeyFrame.Active = true
+KeyFrame.Draggable = true
+KeyFrame.Parent = KeyGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = KeyFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Position = UDim2.new(0, 0, 0, 10)
+Title.BackgroundTransparency = 1
+Title.Text = "XD HUB | License Verification"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.Parent = KeyFrame
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, 0, 0, 30)
+Subtitle.Position = UDim2.new(0, 0, 0, 60)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "🔐 Keys validated through Verified Services & Keyauth.cc"
+Subtitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+Subtitle.TextSize = 14
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.Parent = KeyFrame
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Size = UDim2.new(0.8, 0, 0, 45)
+KeyBox.Position = UDim2.new(0.5, -160, 0, 110)
+KeyBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+KeyBox.BorderSizePixel = 0
+KeyBox.PlaceholderText = "Enter your license key"
+KeyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+KeyBox.Text = ""
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.TextSize = 16
+KeyBox.Font = Enum.Font.Gotham
+KeyBox.ClearTextOnFocus = false
+KeyBox.Parent = KeyFrame
+
+local KeyBoxCorner = Instance.new("UICorner")
+KeyBoxCorner.CornerRadius = UDim.new(0, 6)
+KeyBoxCorner.Parent = KeyBox
+
+local LoginButton = Instance.new("TextButton")
+LoginButton.Size = UDim2.new(0.8, 0, 0, 45)
+LoginButton.Position = UDim2.new(0.5, -160, 0, 170)
+LoginButton.BackgroundColor3 = Color3.fromRGB(65, 105, 225)
+LoginButton.BorderSizePixel = 0
+LoginButton.Text = "LOGIN"
+LoginButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoginButton.TextSize = 18
+LoginButton.Font = Enum.Font.GothamBold
+LoginButton.Parent = KeyFrame
+
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 6)
+ButtonCorner.Parent = LoginButton
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+StatusLabel.Position = UDim2.new(0, 0, 0, 230)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Waiting for input..."
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 14
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Parent = KeyFrame
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 10)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+CloseButton.BorderSizePixel = 0
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Visible = false
+CloseButton.Parent = KeyFrame
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+-- ========== KEY LOGIC ==========
+local function setStatus(text, isError)
+    StatusLabel.Text = text
+    StatusLabel.TextColor3 = isError and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(100, 255, 100)
+end
+
+LoginButton.MouseButton1Click:Connect(function()
+    local key = KeyBox.Text:gsub("%s", "")
+    if key == "" then
+        setStatus("❌ Please enter a key", true)
+        return
     end
-    if ks then
-        ks.CheckKey = function(key)
-            if not key or key == "" then
-                Rayfield:Notify({Title = "Error", Content = "Enter key", Duration = 3})
-                return false
-            end
-            Rayfield:Notify({Title = "Verifying", Content = "Checking KeyAuth...", Duration = 2})
-            local good, msg = checkLicense(key)
-            if good then
-                if ks.SaveKey then pcall(function() ks:SaveKey(key) end) end
-                local name = UserData and UserData.info and UserData.info.username or LocalPlayer.Name
-                pcall(function() Window:UpdateName("XD HUB | " .. name) end)
-                Rayfield:Notify({Title = "Verified", Content = "Welcome " .. name, Duration = 4})
-                return true
-            else
-                Rayfield:Notify({Title = "Invalid", Content = msg or "Bad key", Duration = 4})
-                return false
-            end
+    
+    setStatus("🔍 Verifying with KeyAuth...", false)
+    LoginButton.Text = "..."
+    LoginButton.Active = false
+    
+    task.spawn(function()
+        local success, result = checkLicense(key)
+        
+        if success then
+            setStatus("✅ Key verified! Loading hub...", false)
+            KeyGui:Destroy()
+            Authed = true
+        else
+            setStatus("❌ " .. tostring(result), true)
+            LoginButton.Text = "LOGIN"
+            LoginButton.Active = true
         end
+    end)
+end)
+
+KeyBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        LoginButton.MouseButton1Click:Fire()
     end
 end)
 
 -- ========== WAIT FOR AUTH ==========
-while not Authed do task.wait(0.1) end
+while not Authed do
+    task.wait(0.1)
+end
+
+-- ========== LOAD MAIN HUB ==========
+task.wait(0.3)
 
 -- ========== WELCOME NOTIFICATION ==========
 StarterGui:SetCore("SendNotification", {
     Title = "XD HUB Arsenal",
-    Text = "Working on Mobile & PC",
+    Text = "Working on Mobile & PC | Welcome " .. (UserData and UserData.info and UserData.info.username or LocalPlayer.Name),
     Duration = 6
 })
 
-StarterGui:SetCore("SendNotification", {
-    Title = "Made By:",
-    Text = "@mqp6 / Poc",
-    Duration = 6
-})
+-- ========== ADVANCETECH FUNCTIONS ==========
 
--- ========== PORTERD ADVANCETECH FUNCTIONS ==========
-
--- 1. FLY SYSTEM (from AdvanceTech)
+-- FLY SYSTEM
 local flyState = {enabled = false, speed = 50}
 local c, h, bv, bav, cam, flying
 local buttons = {W = false, S = false, A = false, D = false, Moving = false}
@@ -221,7 +305,7 @@ RunService.Heartbeat:Connect(function(step)
     end
 end)
 
--- 2. HITBOX SYSTEM (from AdvanceTech)
+-- HITBOX SYSTEM
 local hitbox = {
     enabled = false,
     size = 21,
@@ -303,33 +387,44 @@ end
 
 local function onPlayerAdded(player)
     player.CharacterAdded:Connect(onCharacterAdded)
-    player.CharacterRemoving:Connect(function()
-        restorePart(player)
-    end)
+    player.CharacterRemoving:Connect(function() restorePart(player) end)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 for _, player in pairs(Players:GetPlayers()) do onPlayerAdded(player) end
 
--- 3. TRIGGERBOT
+-- TRIGGERBOT
 local triggerbot = {enabled = false, delay = 0.1}
 
--- 4. SILENT AIM MODULE (from AdvanceTech - commented but we'll add the loader)
+-- SILENT AIM
 local silentAim = nil
 local silentAimLoaded = false
 
--- ========== BUILD UI ==========
-pcall(function()
-    local name = UserData and UserData.info and UserData.info.username or LocalPlayer.Name
-    Window:UpdateName("XD HUB | " .. name)
-end)
+-- ========== CREATE RAYFIELD WINDOW ==========
+local Window = Rayfield:CreateWindow({
+    Name = "XD HUB | " .. (UserData and UserData.info and UserData.info.username or LocalPlayer.Name),
+    LoadingTitle = "XD HUB Arsenal",
+    LoadingSubtitle = "by @mqp6 / Poc",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "XDHub",
+        FileName = "Settings"
+    },
+    Discord = {
+        Enabled = true,
+        Invite = "rmpQfYtnWd",
+        RememberJoins = true
+    },
+    KeySystem = false
+})
 
+-- ========== BUILD UI ==========
 local MainTab = Window:CreateTab("Main", 4483362458)
 local PlayerTab = Window:CreateTab("Player", 4483362458)
 local VisualsTab = Window:CreateTab("Visuals", 4483362458)
 local InfoTab = Window:CreateTab("Info", 4483362458)
 
--- ===== MAIN TAB =====
+-- MAIN TAB
 MainTab:CreateSection("Hitbox Expansion")
 
 MainTab:CreateToggle({
@@ -337,14 +432,7 @@ MainTab:CreateToggle({
     CurrentValue = false,
     Callback = function(v)
         hitbox.enabled = v
-        if v then
-            updateHitboxes()
-        else
-            for player, _ in pairs(hitbox_original_properties) do
-                restorePart(player)
-            end
-        end
-        Rayfield:Notify({Title = "Hitbox", Content = v and "On" or "Off", Duration = 1})
+        if v then updateHitboxes() else for p,_ in pairs(hitbox_original_properties) do restorePart(p) end end
     end
 })
 
@@ -353,10 +441,7 @@ MainTab:CreateSlider({
     Range = {10, 50},
     Increment = 1,
     CurrentValue = 21,
-    Callback = function(v)
-        hitbox.size = v
-        if hitbox.enabled then updateHitboxes() end
-    end
+    Callback = function(v) hitbox.size = v if hitbox.enabled then updateHitboxes() end end
 })
 
 MainTab:CreateSlider({
@@ -364,28 +449,19 @@ MainTab:CreateSlider({
     Range = {0, 10},
     Increment = 1,
     CurrentValue = 6,
-    Callback = function(v)
-        hitbox.transparency = v
-        if hitbox.enabled then updateHitboxes() end
-    end
+    Callback = function(v) hitbox.transparency = v if hitbox.enabled then updateHitboxes() end end
 })
 
 MainTab:CreateToggle({
     Name = "Team Check",
     CurrentValue = false,
-    Callback = function(v)
-        hitbox.teamCheck = v
-        if hitbox.enabled then updateHitboxes() end
-    end
+    Callback = function(v) hitbox.teamCheck = v if hitbox.enabled then updateHitboxes() end end
 })
 
 MainTab:CreateToggle({
     Name = "No Collision",
     CurrentValue = false,
-    Callback = function(v)
-        hitbox.noCollision = v
-        if hitbox.enabled then updateHitboxes() end
-    end
+    Callback = function(v) hitbox.noCollision = v if hitbox.enabled then updateHitboxes() end end
 })
 
 MainTab:CreateSection("Silent Aim")
@@ -404,7 +480,6 @@ MainTab:CreateToggle({
         elseif not v and silentAimLoaded then
             silentAim.Enabled = false
             silentAimLoaded = false
-            Rayfield:Notify({Title = "Silent Aim", Content = "Unloaded", Duration = 2})
         end
     end
 })
@@ -429,17 +504,13 @@ MainTab:CreateDropdown({
 MainTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = false,
-    Callback = function(v)
-        if silentAim and silentAimLoaded then silentAim.WallCheck = v end
-    end
+    Callback = function(v) if silentAim and silentAimLoaded then silentAim.WallCheck = v end end
 })
 
 MainTab:CreateToggle({
     Name = "Prediction",
     CurrentValue = false,
-    Callback = function(v)
-        if silentAim and silentAimLoaded then silentAim.Prediction.Enabled = v end
-    end
+    Callback = function(v) if silentAim and silentAimLoaded then silentAim.Prediction.Enabled = v end end
 })
 
 MainTab:CreateSlider({
@@ -447,17 +518,13 @@ MainTab:CreateSlider({
     Range = {0, 100},
     Increment = 1,
     CurrentValue = 50,
-    Callback = function(v)
-        if silentAim and silentAimLoaded then silentAim.Prediction.Amount = v / 1000 end
-    end
+    Callback = function(v) if silentAim and silentAimLoaded then silentAim.Prediction.Amount = v / 1000 end end
 })
 
 MainTab:CreateToggle({
     Name = "FOV Circle",
     CurrentValue = false,
-    Callback = function(v)
-        if silentAim and silentAimLoaded then silentAim.FovSettings.Visible = v end
-    end
+    Callback = function(v) if silentAim and silentAimLoaded then silentAim.FovSettings.Visible = v end end
 })
 
 MainTab:CreateSlider({
@@ -465,9 +532,7 @@ MainTab:CreateSlider({
     Range = {50, 500},
     Increment = 10,
     CurrentValue = 150,
-    Callback = function(v)
-        if silentAim and silentAimLoaded then silentAim.Fov = v end
-    end
+    Callback = function(v) if silentAim and silentAimLoaded then silentAim.Fov = v end end
 })
 
 MainTab:CreateSection("Triggerbot")
@@ -475,10 +540,7 @@ MainTab:CreateSection("Triggerbot")
 MainTab:CreateToggle({
     Name = "Enable Triggerbot",
     CurrentValue = false,
-    Callback = function(v)
-        triggerbot.enabled = v
-        Rayfield:Notify({Title = "Triggerbot", Content = v and "On" or "Off", Duration = 1})
-    end
+    Callback = function(v) triggerbot.enabled = v end
 })
 
 MainTab:CreateSlider({
@@ -486,12 +548,10 @@ MainTab:CreateSlider({
     Range = {0, 300},
     Increment = 10,
     CurrentValue = 100,
-    Callback = function(v)
-        triggerbot.delay = v / 1000
-    end
+    Callback = function(v) triggerbot.delay = v / 1000 end
 })
 
--- ===== PLAYER TAB =====
+-- PLAYER TAB
 PlayerTab:CreateSection("Movement")
 
 PlayerTab:CreateSlider({
@@ -535,7 +595,6 @@ PlayerTab:CreateToggle({
                 end
             end)
         end
-        Rayfield:Notify({Title = "Noclip", Content = v and "On" or "Off", Duration = 1})
     end
 })
 
@@ -545,7 +604,6 @@ PlayerTab:CreateToggle({
     Callback = function(v)
         flyState.enabled = v
         if v then startFly() else endFly() end
-        Rayfield:Notify({Title = "Fly", Content = v and "On" or "Off", Duration = 1})
     end
 })
 
@@ -554,22 +612,18 @@ PlayerTab:CreateSlider({
     Range = {10, 150},
     Increment = 5,
     CurrentValue = 50,
-    Callback = function(v)
-        flyState.speed = v
-    end
+    Callback = function(v) flyState.speed = v end
 })
 
--- ===== VISUALS TAB =====
+-- VISUALS TAB
 VisualsTab:CreateSection("ESP")
 VisualsTab:CreateToggle({
     Name = "ESP (Coming Soon)",
     CurrentValue = false,
-    Callback = function(v)
-        Rayfield:Notify({Title = "ESP", Content = "Coming in next update", Duration = 2})
-    end
+    Callback = function(v) Rayfield:Notify({Title = "ESP", Content = "Coming in next update", Duration = 2}) end
 })
 
--- ===== INFO TAB =====
+-- INFO TAB
 InfoTab:CreateSection("Account")
 InfoTab:CreateParagraph({
     Title = "Your Information",
@@ -586,7 +640,7 @@ InfoTab:CreateSection("XD HUB")
 InfoTab:CreateParagraph({
     Title = "About",
     Content = string.format(
-        "Owner: @mqp6 / Poc\nCreated: 2/10/2026\nDiscord: discord.gg/rmpQfYtnWd\nVersion: 1.0\nMobile: %s\nKeyAuth: Connected",
+        "Owner: @mqp6 / Poc\nCreated: 2/10/2026\nDiscord: discord.gg/rmpQfYtnWd\nVersion: 1.0\nMobile: %s",
         UserInputService.TouchEnabled and "Yes" or "No"
     )
 })
@@ -608,9 +662,9 @@ InfoTab:CreateButton({
     end
 })
 
--- ========== TRIGGERBOT LOOP ==========
+-- TRIGGERBOT LOOP
 task.spawn(function()
-    while wait() do
+    while task.wait() do
         if triggerbot.enabled and Authed then
             local m = LocalPlayer:GetMouse()
             if m.Target then
@@ -618,7 +672,7 @@ task.spawn(function()
                 if c and c:FindFirstChild("Humanoid") then
                     local p = Players:GetPlayerFromCharacter(c)
                     if p and p ~= LocalPlayer then
-                        wait(triggerbot.delay)
+                        task.wait(triggerbot.delay)
                         mouse1click()
                     end
                 end
@@ -627,9 +681,9 @@ task.spawn(function()
     end
 end)
 
--- ========== FINAL NOTIFICATION ==========
+-- FINAL
 Rayfield:Notify({
-    Title = "XD HUB Loaded",
+    Title = "✅ XD HUB Loaded",
     Content = "Welcome " .. (UserData and UserData.info and UserData.info.username or LocalPlayer.Name),
     Duration = 5
 })
