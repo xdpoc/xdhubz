@@ -26,9 +26,8 @@ local Webhooks = {
 }
 
 local Polsec = {
-    ApiId = "663c8b17a5da0", -- YOUR GETPOLSEC API ID
-    ApiHash = "bafb8b3edfe55e35d383130d74f3a32d", -- YOUR GETPOLSEC API HASH
-    ApiUrl = "https://getpolsec.com/api/v1/",
+    ApiKey = "oJkYlFUPtMBeVaul",
+    ApiUrl = "https://api.getpolsec.com/v1/",
     SessionToken = "",
     UserData = nil
 }
@@ -177,8 +176,7 @@ end
 local function PolsecRequest(endpoint, data)
     local url = Polsec.ApiUrl .. endpoint
     data = data or {}
-    data.api_id = Polsec.ApiId
-    data.api_hash = Polsec.ApiHash
+    data.api_key = Polsec.ApiKey
     if Polsec.SessionToken ~= "" then
         data.session_token = Polsec.SessionToken
     end
